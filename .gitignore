@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Generated artefacts. The pipeline rebuilds all of this in a few minutes, and
+# committing a few hundred megabytes of synthetic parquet helps nobody.
+data/raw/*.parquet
+data/processed/*
+models/*
+!data/raw/.gitkeep
+!models/.gitkeep
+
+.DS_Store
+.env
