@@ -62,8 +62,8 @@ consumer should see missing data rather than inherit a guess.
 
 | Question | Method | Why this one |
 |---|---|---|
-| Who are these customers? | Published rule set, checked against K-means | The clustering scored a silhouette of 0.14 — the book has no natural clusters. If the segments are a management choice either way, they should be the stable, explicable choice |
-| Which relationships are ending? | Logistic regression, ROC-AUC ~0.92, 6.6× lift | A behavioural label observed after the feature window. High, and the reason is stated |
+| Who are these customers? | Published rule set, checked against K-means | The clustering scored a silhouette of 0.15 — the book has no natural clusters. If the segments are a management choice either way, they should be the stable, explicable choice |
+| Which relationships are ending? | Logistic regression, ROC-AUC 0.93, 6.7× lift | A behavioural label observed after the feature window. High, and the reason is stated |
 | Who will take what? | Two propensity models on eligible populations only | Trained on the whole book, a propensity model learns eligibility rather than propensity |
 | Where is the headroom? | Published five-component heuristic | There is no ground truth for "opportunity". A model that appeared to find one would be fitting to last year's sales |
 

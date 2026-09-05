@@ -110,10 +110,10 @@ a defect proves nothing.
 
 | Layer | Approach | Result |
 |---|---|---|
-| **Segmentation** | Published rules, checked against K-means | Silhouette 0.14 — no natural clusters exist. Reported as a finding, and as the argument for rules |
-| **Attrition** | Logistic regression | ROC-AUC ~0.92, PR-AUC ~0.75, 6.6× lift |
-| **Investment propensity** | Logistic regression, eligible population only | ROC-AUC ~0.83, 3.8× lift |
-| **Lending propensity** | Logistic regression, eligible population only | ROC-AUC ~0.67, 2.0× lift — modest, and published rather than dropped |
+| **Segmentation** | Published rules, checked against K-means | Silhouette 0.15 at the k in production, 0.16 at the best k tested — no natural clusters exist. Reported as a finding, and as the argument for rules |
+| **Attrition** | Logistic regression | ROC-AUC 0.93, PR-AUC 0.76, 6.7× lift |
+| **Investment propensity** | Logistic regression, eligible population only | ROC-AUC 0.83, 3.8× lift |
+| **Lending propensity** | Logistic regression, eligible population only | ROC-AUC 0.66, 1.9× lift — modest, and published rather than dropped |
 | **Opportunity** | Five-component published heuristic | 0–100 relative score. Not a revenue figure |
 
 Random forest and gradient boosting are trained alongside every model and their

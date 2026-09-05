@@ -80,14 +80,14 @@ reproducing them by hand.
 
 | Model | ROC-AUC | PR-AUC | Base rate | Recall at threshold | Lift |
 |---|---|---|---|---|---|
-| Attrition risk | ~0.92 | ~0.75 | ~11% | ~0.67 | ~6.6× |
-| Investment propensity | ~0.83 | ~0.28 | ~5% | ~0.57 | ~3.8× |
-| Lending propensity | ~0.67 | ~0.20 | ~11% | ~0.30 | ~2.0× |
+| Attrition risk | 0.925 | 0.756 | 11.4% | 0.67 | 6.7× |
+| Investment propensity | 0.827 | 0.274 | 5.4% | 0.57 | 3.8× |
+| Lending propensity | 0.660 | 0.194 | 11.2% | 0.29 | 1.9× |
 
-**On the lending model.** ROC-AUC 0.67 is modest, and it is reported rather than
+**On the lending model.** ROC-AUC 0.66 is modest, and it is reported rather than
 quietly dropped. Credit appetite is largely unobservable from the behaviour
 available before a customer borrows; the model finds a real but weak signal in
-balance-to-income and outflow patterns, and doubles the base rate at the
+balance-to-income and outflow patterns, and lifts the base rate by about 1.9× at the
 operating threshold. That is genuinely useful for prioritising a finite
 outreach list and genuinely insufficient for anything else, and the honest
 report is what allows that distinction to be made.
