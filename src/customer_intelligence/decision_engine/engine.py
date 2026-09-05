@@ -170,19 +170,41 @@ def _confidence(row: pd.Series) -> str:
     return "Low — limited activity history"
 
 
-def recommend(row: pd.Series, model_reasons: list[dict] | None = None) -> Recommendation:
+def recommend(
+    row: pd.Series,
+    model_reasons: list[dict] | None = None,
+    thresholds: dict[str, float] | None = None,
+) -> Recommendation:
     """Decide the suggested action for one customer.
 
     Rules are evaluated in priority order and the first match wins, so the
     ordering *is* the policy: credit position before growth, service failure
     before commercial contact, retention before cross-sell.
+
+    ``thresholds`` carries each model's operating threshold -- the probability
+    above which it flags a customer, set to the share of the book a team can
+    actually contact. The engine acts on those rather than on the descriptive
+    probability bands, so the capacity assumption is made once, in one place,
+    and the engine cannot recommend outreach to more customers than the models
+    were thresholded to flag. Without them the bands are used, which is looser.
     """
+    thresholds = thresholds or {}
     churn_p = float(row.get("churn_probability", 0.0))
     churn_band = band(churn_p, CHURN_BANDS)
     opp = float(row.get("opportunity_score", 0.0))
     opp_band = band(opp, OPPORTUNITY_BANDS)
-    inv_band = band(float(row.get("investment_propensity", 0.0)), PROPENSITY_BANDS)
-    lend_band = band(float(row.get("lending_propensity", 0.0)), PROPENSITY_BANDS)
+    inv_p = float(row.get("investment_propensity", 0.0) or 0.0)
+    lend_p = float(row.get("lending_propensity", 0.0) or 0.0)
+    inv_band = band(inv_p, PROPENSITY_BANDS)
+    lend_band = band(lend_p, PROPENSITY_BANDS)
+
+    # Flagged = above the model's own operating threshold, where one is supplied.
+    inv_flagged = inv_p >= thresholds.get("investment", float("inf")) if thresholds \
+        else inv_band == "High"
+    lend_flagged = lend_p >= thresholds.get("lending", float("inf")) if thresholds \
+        else lend_band == "High"
+    churn_flagged = churn_p >= thresholds.get("churn", float("inf")) if thresholds \
+        else churn_band in ("Elevated", "High")
 
     unresolved = float(row.get("unresolved_interactions", 0) or 0)
     in_arrears = int(row.get("ever_in_arrears", 0) or 0)
@@ -209,7 +231,7 @@ def recommend(row: pd.Series, model_reasons: list[dict] | None = None) -> Recomm
         return fire("arrears_support", "Facility currently or previously in arrears")
 
     # 2. Unresolved service failure outranks any commercial conversation.
-    if unresolved >= 2 and churn_band in ("Elevated", "High"):
+    if unresolved >= 2 and churn_flagged:
         return fire("retention_service",
                     f"{int(unresolved)} unresolved or escalated service contacts",
                     f"Attrition risk {churn_band.lower()} ({churn_p:.0%})")
@@ -217,7 +239,7 @@ def recommend(row: pd.Series, model_reasons: list[dict] | None = None) -> Recomm
         return fire("service_recovery", f"{int(unresolved)} unresolved or escalated service contacts")
 
     # 3. Retention, graded by what the relationship is worth.
-    if churn_band in ("Elevated", "High"):
+    if churn_flagged:
         if opp_band in ("High", "Very high"):
             return fire("retention_rm",
                         f"Attrition risk {churn_band.lower()} ({churn_p:.0%})",
@@ -233,12 +255,12 @@ def recommend(row: pd.Series, model_reasons: list[dict] | None = None) -> Recomm
                     f"Active in only {active_months:.0f} of the last 12 months")
 
     # 5. Growth, on a stable relationship.
-    if inv_band == "High" and opp_band in ("High", "Very high"):
+    if inv_flagged and opp_band in ("High", "Very high"):
         return fire("grow_investment",
                     f"Investment propensity {inv_band.lower()}",
                     f"Attrition risk {churn_band.lower()}",
                     f"Relationship opportunity {opp:.0f}/100")
-    if lend_band == "High" and churn_band == "Low":
+    if lend_flagged and churn_band == "Low":
         return fire("grow_lending",
                     f"Lending propensity {lend_band.lower()}",
                     "No arrears on record")
@@ -253,9 +275,12 @@ def recommend(row: pd.Series, model_reasons: list[dict] | None = None) -> Recomm
                 f"Relationship opportunity {opp:.0f}/100")
 
 
-def recommend_batch(scored: pd.DataFrame) -> pd.DataFrame:
+def recommend_batch(
+    scored: pd.DataFrame, thresholds: dict[str, float] | None = None
+) -> pd.DataFrame:
     """Apply the rules across the book and return one row per customer."""
-    records = [recommend(row).as_dict() for _, row in scored.iterrows()]
+    records = [recommend(row, thresholds=thresholds).as_dict()
+               for _, row in scored.iterrows()]
     out = pd.DataFrame(records)
     out["conditions"] = out["conditions"].apply(lambda c: " · ".join(c))
     return out.drop(columns=["reasons"])

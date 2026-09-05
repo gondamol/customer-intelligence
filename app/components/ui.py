@@ -129,6 +129,25 @@ def priority_badge(priority: str) -> str:
     return badge(priority, kind.get(priority, "neutral"))
 
 
+def score_label(probability, threshold: float | None, band_label: str) -> str:
+    """Describe a model score the way the decision engine reads it.
+
+    The descriptive band ("High", "Moderate") and the operating threshold are
+    two different statements, and showing only the band invites the obvious
+    question: a customer can read "Moderate" and still be flagged for outreach,
+    because the threshold is a capacity decision rather than a point on the band
+    scale. Both are shown, so the score and the action agree on the page.
+    """
+    if probability is None or pd.isna(probability):
+        return "Already held"
+    p = float(probability)
+    if threshold is None:
+        return f"{p:.1%} · {band_label}"
+    if p >= threshold:
+        return f"{p:.1%} · {band_label} · <b>flagged</b> (threshold {threshold:.1%})"
+    return f"{p:.1%} · {band_label} · not flagged (threshold {threshold:.1%})"
+
+
 def rule() -> None:
     st.markdown('<hr class="ci-rule">', unsafe_allow_html=True)
 

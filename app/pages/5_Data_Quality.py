@@ -65,12 +65,22 @@ ui.section("The seven dimensions")
 
 d1, d2 = st.columns([1.2, 1], gap="large")
 with d1:
-    dims = dimensions.sort_values("score")
+    st.markdown("#### Shortfall from full conformance")
+    dims = dimensions.copy()
+    dims["shortfall"] = 100.0 - dims["score"]
+    dims = dims.sort_values("shortfall", ascending=False)
     st.plotly_chart(
-        charts.hbar(list(dims["dimension"]), list(dims["score"]),
+        charts.hbar(list(dims["dimension"]), list(dims["shortfall"]),
                     value_fmt="{:.2f}", label_suffix="%", height=320,
-                    hover_label="Severity-weighted pass rate"),
-        use_container_width=True,
+                    colour=ORANGE, hover_label="Shortfall from 100%"),
+        width="stretch",
+    )
+    ui.note(
+        "Plotted as the shortfall from 100%, not the pass rate itself. Every "
+        "dimension scores between 98.4% and 99.9%, so a bar chart of the scores "
+        "is seven identical bars that hide the very differences it is there to "
+        "show. Inverting it puts the largest problem at the top, which is also "
+        "the order remediation would work in."
     )
 with d2:
     st.markdown("#### What each dimension asks")
@@ -92,7 +102,7 @@ st.plotly_chart(
     charts.hbar(list(top_impact["rule"]), list(top_impact["customers_affected"]),
                 value_fmt="{:,.0f}", height=380, colour=ORANGE,
                 hover_label="Customers affected"),
-    use_container_width=True,
+    width="stretch",
 )
 
 # ----------------------------------------------------------- every check ----
@@ -106,7 +116,7 @@ st.dataframe(
     show.style.format({
         "Failing rows": "{:,.0f}", "Total rows": "{:,.0f}", "Pass rate": "{:.4%}",
     }),
-    use_container_width=True, hide_index=True, height=440,
+    width="stretch", hide_index=True, height=440,
 )
 
 # --------------------------------------------------------- reconciliation ---
@@ -124,7 +134,7 @@ rec_display.columns = ["Table", "Injected defect", "Dimension", "Injected",
                        "Detected", "Result"]
 st.dataframe(
     rec_display.style.format({"Injected": "{:,.0f}", "Detected": "{:,.0f}"}),
-    use_container_width=True, hide_index=True,
+    width="stretch", hide_index=True,
 )
 
 over = rec[rec["detected"] > rec["injected"]]
@@ -152,7 +162,7 @@ conf = conformance.copy()
 conf.columns = ["Table", "Rule", "Rows", "Decision taken"]
 st.dataframe(
     conf.style.format({"Rows": "{:,.0f}"}),
-    use_container_width=True, hide_index=True, height=440,
+    width="stretch", hide_index=True, height=440,
 )
 ui.note(
     "Two decisions are worth arguing with. Anomalous transaction amounts are "
@@ -196,13 +206,13 @@ for slug, name in [("churn", "Attrition risk"), ("investment", "Investment prope
             st.markdown("**Calibration — when it says 20%, does 20% happen?**")
             st.plotly_chart(
                 charts.calibration(data.load(f"model_{slug}_calibration"), height=290),
-                use_container_width=True,
+                width="stretch",
             )
             st.markdown("**Model comparison**")
             comp = data.load(f"model_{slug}_comparison")
             st.dataframe(
                 comp.style.format({"ROC-AUC": "{:.4f}", "PR-AUC": "{:.4f}", "Brier": "{:.4f}"}),
-                use_container_width=True, hide_index=True,
+                width="stretch", hide_index=True,
             )
             tm = confusion = card["confusion"]
             st.markdown(
@@ -217,7 +227,7 @@ for slug, name in [("churn", "Attrition risk"), ("investment", "Investment prope
             charts.hbar(list(imp["label"]), list(imp["importance"]),
                         value_fmt="{:.4f}", height=330,
                         hover_label="Drop in ROC-AUC when shuffled"),
-            use_container_width=True,
+            width="stretch",
         )
 
 ui.note(

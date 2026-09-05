@@ -239,6 +239,36 @@ interactive because the work already happened, and the number a reader saw
 yesterday can be reproduced today because it is a file rather than the output of
 a fit that ran while they were looking.
 
+## Screenshots
+
+**Executive view** — four questions in order, and nothing else on the page.
+
+![Executive view](assets/01-executive-view.png)
+
+**Decision support** — the evidence, what drove it, the suggested action, and the
+constraints on acting.
+
+![Decision support](assets/05-decision-support.png)
+
+**Data quality & governance** — the same data reported two ways, because one of
+them is reassuring and misleading.
+
+![Data quality and governance](assets/06-data-quality.png)
+
+**Customer segments** — share of customers against share of balances. Any
+segmentation where the two charts have the same shape has found nothing.
+
+![Customer segments](assets/03-segments.png)
+
+**Risk & opportunity** — the matrix, drawn as a density surface because fifty
+thousand overlapping points are a blob.
+
+![Risk and opportunity](assets/04-risk-opportunity.png)
+
+**Customer 360** — one relationship, end to end.
+
+![Customer 360](assets/02-customer-360.png)
+
 ## Testing
 
 ```bash

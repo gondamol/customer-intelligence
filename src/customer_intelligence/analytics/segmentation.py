@@ -84,8 +84,10 @@ def rule_segments(c360: pd.DataFrame) -> pd.Series:
     seg[balance >= b_hi] = "High Value"
 
     # Inactivity overrides everything: a lapsed relationship is not an affluent
-    # one, whatever the balance says.
-    seg[c360["active_months"] <= 1] = "Dormant / Lapsing"
+    # one, whatever the balance says. The cut-off is a third of the window --
+    # at "active in one month of twelve" the rule caught five customers in
+    # fifty thousand, which is a segment nobody can operate.
+    seg[c360["active_months"] <= 4] = "Dormant / Lapsing"
     return seg
 
 

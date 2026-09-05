@@ -16,9 +16,10 @@ for path in (str(APP_DIR), str(ROOT / "src")):
 from components.theme import CSS, register_template  # noqa: E402
 
 
-def setup(title: str) -> None:
+def setup(title: str, root: bool = False) -> None:
     st.set_page_config(
-        page_title=f"{title} · Customer Intelligence",
+        page_title=("Customer Intelligence & Decision Analytics" if root
+                    else f"{title} · Customer Intelligence"),
         page_icon="◆", layout="wide", initial_sidebar_state="expanded",
     )
     register_template()

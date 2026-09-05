@@ -14,6 +14,7 @@ from components.theme import BLUE, ORANGE                                # noqa:
 from customer_intelligence.config import CHURN_BANDS, OPPORTUNITY_BANDS, PROPENSITY_BANDS, band  # noqa: E402
 
 df = data.customers()
+THRESHOLDS = data.run_summary().get("thresholds", {})
 
 ui.page_header(
     "Customer 360",
@@ -141,7 +142,7 @@ with t1:
                            {"closing_balance": "Closing balance",
                             "transaction_value": "Transaction value"},
                            y_title="Monetary units"),
-        use_container_width=True,
+        width="stretch",
     )
 with t2:
     st.markdown("#### Activity and engagement")
@@ -150,7 +151,7 @@ with t2:
                            {"transaction_count": "Transactions",
                             "total_logins": "Logins"},
                            y_title="Count", value_fmt=":,.0f"),
-        use_container_width=True,
+        width="stretch",
     )
 ui.note(
     "Balance and transaction value share a chart because they share a unit. "
@@ -165,11 +166,14 @@ with s1:
     inv = row["investment_propensity"]
     lend = row["lending_propensity"]
     ui.panel("Model scores", [
-        ("Attrition risk", f"{row['churn_probability']:.1%} · {risk_band}"),
-        ("Investment propensity",
-         "Already held" if pd.isna(inv) else f"{inv:.1%} · {band(inv, PROPENSITY_BANDS)}"),
-        ("Lending propensity",
-         "Already held" if pd.isna(lend) else f"{lend:.1%} · {band(lend, PROPENSITY_BANDS)}"),
+        ("Attrition risk", ui.score_label(row["churn_probability"],
+                                          THRESHOLDS.get("churn"), risk_band)),
+        ("Investment propensity", ui.score_label(
+            inv, THRESHOLDS.get("investment"),
+            band(inv, PROPENSITY_BANDS) if not pd.isna(inv) else "")),
+        ("Lending propensity", ui.score_label(
+            lend, THRESHOLDS.get("lending"),
+            band(lend, PROPENSITY_BANDS) if not pd.isna(lend) else "")),
         ("Relationship opportunity", f"{row['opportunity_score']:.0f} / 100 · {opp_band}"),
         ("Quadrant", row["quadrant"]),
     ])

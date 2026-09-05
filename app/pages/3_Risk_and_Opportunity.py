@@ -39,7 +39,7 @@ with r1:
             df["churn_probability"], bins=50, x_title="Modelled attrition probability",
             cut=churn["threshold"], cut_label="Operating threshold", height=310,
         ),
-        use_container_width=True,
+        width="stretch",
     )
     ui.note(
         f"The dotted line is the operating threshold ({churn['threshold']:.1%}), "
@@ -52,7 +52,7 @@ with r2:
     bands = df["churn_probability"].apply(lambda p: band(p, CHURN_BANDS))
     counts = bands.value_counts().reindex([b for b, _ in CHURN_BANDS]).fillna(0).astype(int)
     st.plotly_chart(charts.banded_bar(counts, RISK_COLOURS, height=310, total=len(df)),
-                    use_container_width=True)
+                    width="stretch")
 
 st.markdown("#### Which segments carry the risk")
 risk_by_seg = df.groupby("segment", observed=True).agg(
@@ -68,14 +68,14 @@ with rs1:
     st.plotly_chart(
         charts.hbar(list(risk_by_seg["segment"]), list(risk_by_seg["mean_risk"]),
                     value_fmt="{:.1%}", height=320, hover_label="Mean attrition risk"),
-        use_container_width=True,
+        width="stretch",
     )
 with rs2:
     st.plotly_chart(
         charts.hbar(list(risk_by_seg["segment"]), list(risk_by_seg["balance_at_risk"]),
                     value_fmt="{:,.0f}", height=320, colour=ORANGE,
                     hover_label="Balances held by at-risk customers"),
-        use_container_width=True,
+        width="stretch",
     )
 ui.note(
     "Left: how likely a segment is to leave. Right: how much balance sits with "
@@ -96,7 +96,7 @@ with o1:
     st.plotly_chart(
         charts.histogram(df["opportunity_score"], bins=40, colour=BLUE,
                          x_title="Relationship opportunity score", height=300),
-        use_container_width=True,
+        width="stretch",
     )
 with o2:
     ui.panel("How the score is built", [
@@ -120,7 +120,7 @@ comp_means = df.groupby("segment", observed=True)[comp_cols].mean().reset_index(
 comp_long = comp_means.melt(id_vars="segment", var_name="component", value_name="score")
 comp_long["component"] = comp_long["component"].str.replace("opp_", "").str.replace("_", " ").str.capitalize()
 pivot = comp_long.pivot(index="segment", columns="component", values="score").round(1)
-st.dataframe(pivot, use_container_width=True)
+st.dataframe(pivot, width="stretch")
 
 # -------------------------------------------------------------- matrix -----
 ui.section(
@@ -135,7 +135,7 @@ with m1:
     st.plotly_chart(
         charts.risk_opportunity_matrix(df["opportunity_score"], df["churn_probability"],
                                        height=460),
-        use_container_width=True,
+        width="stretch",
     )
     ui.note(
         "Drawn as a density surface, not a scatter: fifty thousand overlapping "
@@ -189,7 +189,7 @@ st.dataframe(
         "Avg balance": "{:,.0f}", "Attrition risk": "{:.0%}",
         "Opportunity": "{:.0f}", "Products": "{:.0f}", "Complaints": "{:.0f}",
     }),
-    use_container_width=True, hide_index=True, height=420,
+    width="stretch", hide_index=True, height=420,
 )
 ui.note(
     "Ordered by balance at risk rather than by probability. The highest-"

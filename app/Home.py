@@ -19,18 +19,14 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from components import charts, data, ui                       # noqa: E402
-from components.theme import BLUE, ORANGE, QUADRANT_COLOURS, RISK_COLOURS, register_template  # noqa: E402
+from components.page import setup                                      # noqa: E402
 
-st.set_page_config(
-    page_title="Customer Intelligence & Decision Analytics",
-    page_icon="◆", layout="wide", initial_sidebar_state="expanded",
-)
-register_template()
-st.markdown(__import__("components.theme", fromlist=["CSS"]).CSS, unsafe_allow_html=True)
+setup("Executive view", root=True)
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from customer_intelligence.config import CHURN_BANDS, band  # noqa: E402
+from components import charts, data, ui                                # noqa: E402
+from components.theme import BLUE, ORANGE, QUADRANT_COLOURS, RISK_COLOURS  # noqa: E402
+from customer_intelligence.analytics.opportunity import QUADRANT_MEANING   # noqa: E402
+from customer_intelligence.config import CHURN_BANDS, band              # noqa: E402
 
 df = data.customers()
 cards = data.model_cards()
@@ -79,7 +75,7 @@ with left:
     order = [b for b, _ in CHURN_BANDS]
     counts = bands.value_counts().reindex(order).fillna(0).astype(int)
     st.plotly_chart(charts.banded_bar(counts, RISK_COLOURS, total=len(df)),
-                    use_container_width=True)
+                    width="stretch")
     ui.note(
         "Bands are fixed probability cut-offs, chosen once and documented — not "
         "quantiles, which would move every time the book is refreshed and make "
@@ -92,7 +88,7 @@ with right:
     st.plotly_chart(
         charts.grouped_profile(profiles, "segment", "customers",
                                hover_label="Customers"),
-        use_container_width=True,
+        width="stretch",
     )
     ui.note(
         "Segments come from a published rule set rather than a clustering, so "
@@ -114,7 +110,7 @@ with c1:
     st.plotly_chart(
         charts.hbar(list(imp["label"]), list(imp["importance"]),
                     value_fmt="{:.3f}", height=320, hover_label="Drop in ROC-AUC"),
-        use_container_width=True,
+        width="stretch",
     )
     ui.note(
         "Permutation importance: how far ROC-AUC falls when a single input is "
@@ -149,11 +145,10 @@ m1, m2 = st.columns([1.4, 1], gap="large")
 with m1:
     st.plotly_chart(
         charts.risk_opportunity_matrix(df["opportunity_score"], df["churn_probability"]),
-        use_container_width=True,
+        width="stretch",
     )
 with m2:
     st.markdown("#### The four groups")
-    from customer_intelligence.analytics.opportunity import QUADRANT_MEANING
     quad_counts = df["quadrant"].value_counts()
     for name in ["Retain", "Grow", "Monitor", "Develop"]:
         n = int(quad_counts.get(name, 0))
@@ -182,7 +177,7 @@ with a1:
     st.plotly_chart(
         charts.grouped_profile(actions, "action", "customers", height=340,
                                hover_label="Customers"),
-        use_container_width=True,
+        width="stretch",
     )
 with a2:
     cost = df["cost"].value_counts()

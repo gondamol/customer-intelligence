@@ -105,7 +105,7 @@ def apply(fig: go.Figure, height: int = 300, showlegend: bool | None = None) -> 
 CSS = f"""
 <style>
   .stApp {{ background: {PAGE}; }}
-  .block-container {{ padding-top: 2.2rem; padding-bottom: 4rem; max-width: 1320px; }}
+  .block-container {{ padding-top: 4.6rem; padding-bottom: 4rem; max-width: 1320px; }}
 
   h1, h2, h3, h4 {{ color: {INK}; letter-spacing: -0.011em; font-weight: 600; }}
   h1 {{ font-size: 1.85rem; margin-bottom: .15rem; }}

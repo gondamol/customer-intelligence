@@ -35,7 +35,7 @@ with o1:
         charts.hbar(list(profiles["segment"]), list(profiles["share_of_customers"]),
                     value_fmt="{:.1f}", label_suffix="%", height=330,
                     hover_label="Share of customers"),
-        use_container_width=True,
+        width="stretch",
     )
 with o2:
     st.markdown("#### Share of balances")
@@ -43,7 +43,7 @@ with o2:
         charts.hbar(list(profiles["segment"]), list(profiles["share_of_balances"]),
                     value_fmt="{:.1f}", label_suffix="%", height=330, colour=ORANGE,
                     hover_label="Share of balances"),
-        use_container_width=True,
+        width="stretch",
     )
 
 top = profiles.loc[profiles["share_of_balances"].idxmax()]
@@ -79,7 +79,7 @@ st.dataframe(
         "Digital share": "{:.0%}", "Loan exposure": "{:,.0f}",
         "Arrears rate": "{:.1%}", "Tenure (months)": "{:.0f}",
     }),
-    use_container_width=True, hide_index=True,
+    width="stretch", hide_index=True,
 )
 
 with st.expander("What each segment means, in business language"):
@@ -106,7 +106,7 @@ with c1:
     st.plotly_chart(
         charts.trend_lines(diagnostics, "k", {"silhouette": "Silhouette score"},
                            y_title="Silhouette", value_fmt=":.3f", height=270),
-        use_container_width=True,
+        width="stretch",
     )
     ui.panel("Clustering diagnostics", [
         ("Best k by silhouette", f"{int(best['k'])}"),
@@ -117,7 +117,7 @@ with c1:
 with c2:
     st.markdown("#### Where the two methods agree")
     crosstab = data.load("segment_cluster_crosstab").set_index("segment")
-    st.dataframe(crosstab, use_container_width=True)
+    st.dataframe(crosstab, width="stretch")
 
 ui.note(
     f"The silhouette score peaks at {best['silhouette']:.3f}. That is weak — a "
@@ -159,5 +159,5 @@ fmt = "{:.1%}" if metric in ("digital_share", "churn_probability") else "{:,.1f}
 st.plotly_chart(
     charts.hbar(list(by_segment["segment"]), list(by_segment[metric]),
                 value_fmt=fmt, height=330, hover_label="Segment average"),
-    use_container_width=True,
+    width="stretch",
 )

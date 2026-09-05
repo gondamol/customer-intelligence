@@ -134,3 +134,39 @@ def test_batch_matches_row_by_row(train_360):
     assert batch["action"].notna().all()
     for i in range(0, len(sample), 17):
         assert batch.iloc[i]["action"] == recommend(sample.iloc[i]).action.title
+
+
+def test_operating_thresholds_govern_the_growth_rules():
+    """The engine must not recommend outreach to more customers than the models
+    were thresholded to flag.
+
+    A propensity of 0.30 is 'High' on the descriptive bands. If the model's
+    operating threshold is 0.55, that customer was not flagged, and acting on
+    them would quietly spend capacity the threshold was set to protect.
+    """
+    thresholds = {"churn": 0.50, "investment": 0.55, "lending": 0.55}
+
+    below = recommend(customer(investment_propensity=0.30, opportunity_score=85.0),
+                      thresholds=thresholds)
+    assert below.action.key != "grow_investment"
+
+    above = recommend(customer(investment_propensity=0.70, opportunity_score=85.0),
+                      thresholds=thresholds)
+    assert above.action.key == "grow_investment"
+
+
+def test_thresholds_also_govern_retention():
+    thresholds = {"churn": 0.60, "investment": 0.9, "lending": 0.9}
+    below = recommend(customer(churn_probability=0.35, opportunity_score=85.0),
+                      thresholds=thresholds)
+    assert below.action.key not in ("retention_rm", "retention_digital")
+
+    above = recommend(customer(churn_probability=0.75, opportunity_score=85.0),
+                      thresholds=thresholds)
+    assert above.action.key == "retention_rm"
+
+
+def test_falls_back_to_bands_when_no_thresholds_supplied():
+    """Called without thresholds the engine still works, using the bands."""
+    rec = recommend(customer(churn_probability=0.6, opportunity_score=85.0))
+    assert rec.action.key == "retention_rm"

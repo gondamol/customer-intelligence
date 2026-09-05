@@ -19,6 +19,8 @@ from customer_intelligence.decision_engine import recommend    # noqa: E402
 
 df = data.customers()
 cards = data.model_cards()
+run = data.run_summary()
+THRESHOLDS = run.get("thresholds", {})
 
 ui.page_header(
     "Decision support",
@@ -27,9 +29,7 @@ ui.page_header(
     "evidence the models produced, what drove it, the action the rules "
     "suggest, and the constraints on acting.",
 )
-ui.synthetic_notice(
-    "No output on this page is a financial, credit, or product recommendation."
-)
+ui.synthetic_notice()
 
 # ----------------------------------------------------------------- picker ---
 c1, c2 = st.columns([1, 2])
@@ -78,11 +78,14 @@ with left:
     inv, lend = row["investment_propensity"], row["lending_propensity"]
     ui.panel("The evidence", [
         ("Segment", row["segment"]),
-        ("Attrition risk", f"{row['churn_probability']:.1%} · {risk_band}"),
-        ("Investment propensity",
-         "Already held" if pd.isna(inv) else f"{inv:.1%} · {band(inv, PROPENSITY_BANDS)}"),
-        ("Lending propensity",
-         "Already held" if pd.isna(lend) else f"{lend:.1%} · {band(lend, PROPENSITY_BANDS)}"),
+        ("Attrition risk", ui.score_label(row["churn_probability"],
+                                          THRESHOLDS.get("churn"), risk_band)),
+        ("Investment propensity", ui.score_label(
+            inv, THRESHOLDS.get("investment"),
+            band(inv, PROPENSITY_BANDS) if not pd.isna(inv) else "")),
+        ("Lending propensity", ui.score_label(
+            lend, THRESHOLDS.get("lending"),
+            band(lend, PROPENSITY_BANDS) if not pd.isna(lend) else "")),
         ("Relationship opportunity", f"{row['opportunity_score']:.0f} / 100 · {opp_band}"),
         ("Average monthly balance", ui.money(row["avg_monthly_balance"])),
         ("Products held", f"{int(row['product_count'])}"),
@@ -92,7 +95,7 @@ with left:
     ])
 
 with right:
-    rec = recommend(row)
+    rec = recommend(row, thresholds=THRESHOLDS)
     action = rec.action
     kind = {"Urgent": "critical", "High": "serious"}.get(action.priority, "neutral")
     st.markdown(
@@ -126,6 +129,13 @@ with right:
     )
 
 # ------------------------------------------------------- why this score -----
+ui.note(
+    "A score can read <b>Moderate</b> on the descriptive bands and still be "
+    "flagged for outreach. The bands describe where a probability sits; the "
+    "threshold is the separate decision about how many customers a team can "
+    "actually contact. Both are shown so the score and the action agree."
+)
+
 ui.section(
     "What drove the attrition score",
     "Each bar is the model's standardised coefficient multiplied by how far "
@@ -151,7 +161,7 @@ d1, d2 = st.columns([1.3, 1], gap="large")
 with d1:
     if reasons:
         st.plotly_chart(charts.contribution_bars(reasons, height=300),
-                        use_container_width=True)
+                        width="stretch")
     else:
         st.info("No contributing features could be computed for this customer.")
 with d2:
@@ -199,7 +209,7 @@ st.dataframe(
         "Customers": "{:,.0f}", "Balances": "{:,.0f}",
         "Mean risk": "{:.1%}", "Mean opportunity": "{:.0f}",
     }),
-    use_container_width=True, hide_index=True,
+    width="stretch", hide_index=True,
 )
 
 human = df[df["cost"] == "Relationship manager"]

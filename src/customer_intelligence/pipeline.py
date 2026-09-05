@@ -197,7 +197,11 @@ def stage_train() -> None:
     t = _log(f"scored, segmented and scored for opportunity "
              f"(silhouette {diagnostics['silhouette']:.3f})", t)
 
-    recommendations = recommend_batch(scored)
+    # The engine acts on the models' operating thresholds, so the capacity
+    # assumption is made once and the recommended outreach cannot exceed what
+    # the models were thresholded to flag.
+    thresholds = {slug: float(r.threshold) for slug, r in results.items()}
+    recommendations = recommend_batch(scored, thresholds)
     scored = scored.merge(
         recommendations[["customer_id", "action", "channel", "priority", "cost", "conditions"]],
         on="customer_id", how="left",
@@ -211,6 +215,7 @@ def stage_train() -> None:
 
     (PROCESSED_DIR / "run_summary.json").write_text(json.dumps({
         "customers": int(len(scored)),
+        "thresholds": thresholds,
         "generated_at": pd.Timestamp.now().isoformat(timespec="seconds"),
         "cluster_silhouette": diagnostics["silhouette"],
         "actions": scored["action"].value_counts().to_dict(),
