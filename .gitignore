@@ -5,13 +5,21 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 
-# Generated artefacts. The pipeline rebuilds all of this in a few minutes, and
-# committing a few hundred megabytes of synthetic parquet helps nobody.
+# Source data is NOT redistributed here. It is downloaded from its original
+# publisher at build time and cached under data/external/. See sources/registry.py.
+data/external/
 data/raw/*.parquet
-data/processed/*
-models/*
 !data/raw/.gitkeep
-!models/.gitkeep
+
+# The DERIVED artefacts ARE committed: they are what the deployed application
+# reads, they total about 4 MB, and under CC BY 4.0 an adaptation may be
+# redistributed with attribution — which every page of the application carries.
+!data/processed/
+!data/processed/*.parquet
+!data/processed/*.json
+!models/
+!models/*.json
+models/*.joblib
 
 .DS_Store
 .env

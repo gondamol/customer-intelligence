@@ -63,7 +63,7 @@ def quality_score(results: pd.DataFrame) -> float:
     return float((dims["score"] * weights).sum() / weights.sum())
 
 
-def customer_impact(con) -> pd.DataFrame:
+def customer_impact(con, checks=None) -> pd.DataFrame:
     """How many distinct customers each defect actually touches.
 
     A row-level pass rate of 99% sounds like nothing is wrong. But defects are
@@ -72,8 +72,9 @@ def customer_impact(con) -> pd.DataFrame:
     """
     from .checks import CHECKS
 
+    checks = checks or CHECKS
     rows, affected_sets = [], []
-    for check in CHECKS:
+    for check in checks:
         if not check.impact_sql:
             continue
         ids = con.execute(check.impact_sql).df()["customer_id"].dropna()
@@ -92,12 +93,13 @@ def customer_impact(con) -> pd.DataFrame:
     return df
 
 
-def build_quality_report(con, manifest: list[dict] | None = None) -> dict:
+def build_quality_report(con, manifest: list[dict] | None = None, checks=None) -> dict:
     """Run the checks and assemble everything the application and tests need."""
-    from .checks import run_checks
+    from .checks import CHECKS, run_checks
 
-    results = run_checks(con)
-    impact = customer_impact(con)
+    checks = checks or CHECKS
+    results = run_checks(con, checks)
+    impact = customer_impact(con, checks)
     report = {
         "results": results,
         "dimensions": dimension_scores(results),

@@ -10,10 +10,11 @@
 
 PY      := .venv/bin/python
 UV      := $(shell command -v uv 2>/dev/null || echo "$$HOME/.local/bin/uv")
-PIPE    := $(PY) -m customer_intelligence.pipeline
+PIPE    := $(PY) -m customer_intelligence.pipeline_retail
+SYNTH   := $(PY) -m customer_intelligence.pipeline
 
 .DEFAULT_GOAL := help
-.PHONY: help setup generate quality build train all demo run test lint clean distclean
+.PHONY: help setup fetch land quality build train all validate-checks run test lint clean distclean
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -24,8 +25,11 @@ setup: ## Create the virtual environment and install the package
 	$(UV) pip install --python $(PY) -e ".[dev]"
 	@echo "Environment ready. Next: make all"
 
-generate: ## Generate the synthetic source data and inject defects
-	$(PIPE) generate
+fetch: ## Download the published source data (UCI, IBM) and cache it
+	$(PIPE) fetch
+
+land: ## Land the source tables as published, defects intact
+	$(PIPE) land
 
 quality: ## Run the data quality assessment
 	$(PIPE) quality
@@ -36,11 +40,11 @@ build: ## Build the conformed layer, monthly panel and Customer 360
 train: ## Train the models, score the book and apply the decision engine
 	$(PIPE) train
 
-all: ## Run the whole pipeline end to end (50,000 customers)
+all: ## Run the whole pipeline end to end on the real data
 	$(PIPE) all
 
-demo: ## Same pipeline on a smaller population, for a quick look
-	$(PIPE) all --customers 8000
+validate-checks: ## Prove the quality checks work, against known injected defects
+	$(SYNTH) all --customers 8000
 
 run: ## Open the Streamlit application
 	.venv/bin/streamlit run app/Home.py
@@ -51,8 +55,11 @@ test: ## Run the test suite
 lint: ## Check that every module imports cleanly
 	$(PY) -c "import customer_intelligence, customer_intelligence.pipeline; print('imports clean')"
 
-clean: ## Remove generated data and models, keep the environment
-	rm -rf data/raw/*.parquet data/processed/* models/*
+clean: ## Remove generated artefacts, keep the downloaded source data
+	rm -rf data/raw/*.parquet data/processed/* models/*.joblib models/*.json
+
+clean-all: clean ## Also drop the cached downloads
+	rm -rf data/external
 	@echo "Generated artefacts removed. Run make all to rebuild."
 
 distclean: clean ## Also remove the virtual environment

@@ -13,21 +13,21 @@ import streamlit as st
 
 from .theme import BORDER, INK, INK_MUTED, RISK_COLOURS, STATUS
 
-CURRENCY = "MU"
+CURRENCY = "£"
 
 
 # ------------------------------------------------------------ formatting ----
 
 
 def money(value: float | None, decimals: int = 0) -> str:
-    """Monetary units, abbreviated once the digits stop being informative."""
+    """Sterling, abbreviated once the digits stop being informative."""
     if value is None or pd.isna(value):
         return "—"
     v = float(value)
     for cut, suffix in ((1e9, "bn"), (1e6, "m"), (1e3, "k")):
         if abs(v) >= cut:
-            return f"{CURRENCY} {v / cut:,.1f}{suffix}"
-    return f"{CURRENCY} {v:,.{decimals}f}"
+            return f"{CURRENCY}{v / cut:,.1f}{suffix}"
+    return f"{CURRENCY}{v:,.{decimals}f}"
 
 
 def num(value: float | None, decimals: int = 0) -> str:
@@ -55,13 +55,37 @@ def page_header(eyebrow: str, title: str, lead: str = "") -> None:
         st.markdown(f'<p class="ci-lead">{lead}</p>', unsafe_allow_html=True)
 
 
+def source_notice(extra: str = "") -> None:
+    """The provenance line. Shown on every page, not tucked into an about box.
+
+    CC BY 4.0 is an attribution licence: crediting the source is a condition of
+    use, not a courtesy. It also happens to be the first thing a reader should
+    know, because it is what separates this from a demonstration on invented
+    numbers.
+    """
+    st.markdown(
+        '<div class="ci-synthetic"><strong>Real data.</strong> '
+        "Every figure on this page comes from <strong>Online Retail II</strong> — "
+        "1,067,371 real invoice lines from a UK giftware wholesaler, "
+        "December 2009 to November 2011, published by the UCI Machine Learning "
+        "Repository (Chen, D., 2012) under "
+        '<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" '
+        'rel="noopener">CC BY 4.0</a>. '
+        "Scores and recommendations are this project's own work and are decision "
+        "<em>support</em>: nothing here is an automated decision."
+        + (f" {extra}" if extra else "")
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+# Kept so the synthetic quality-validation harness can still label itself.
 def synthetic_notice(extra: str = "") -> None:
     st.markdown(
-        '<div class="ci-synthetic"><strong>Synthetic demonstration.</strong> '
-        "Every customer, transaction and score on this page was generated for "
-        "this portfolio project. Nothing here describes a real organisation, a "
-        "real customer, or a real portfolio, and no output is a financial, "
-        "credit, or customer decision." + (f" {extra}" if extra else "")
+        '<div class="ci-synthetic"><strong>Synthetic control data.</strong> '
+        "This page uses generated data with deliberately injected defects, used "
+        "only to verify that the quality checks detect what they claim to."
+        + (f" {extra}" if extra else "")
         + "</div>",
         unsafe_allow_html=True,
     )

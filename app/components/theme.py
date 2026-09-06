@@ -56,6 +56,7 @@ RISK_COLOURS = {
 QUADRANT_COLOURS = {
     "Retain": STATUS["critical"], "Grow": STATUS["good"],
     "Monitor": STATUS["warning"], "Develop": INK_MUTED,
+    "Not scored": INK_MUTED,
 }
 
 FONT = ('-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif')

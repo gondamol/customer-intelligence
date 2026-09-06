@@ -1,0 +1,51 @@
+{
+  "provenance": {
+    "bank_marketing": {
+      "attribution": "Moro, S., Rita, P., & Cortez, P. (2014). Bank Marketing. UCI Machine Learning Repository.",
+      "bytes": 1023843,
+      "licence": "CC BY 4.0",
+      "name": "Bank Marketing",
+      "sha256": "e0bf5f5de5b846e2f18e9d90606637267d46dfa260e0f17bb12e605db5efbeb4",
+      "url": "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+    },
+    "online_retail_ii": {
+      "attribution": "Chen, D. (2012). Online Retail II. UCI Machine Learning Repository.",
+      "bytes": 45622418,
+      "licence": "CC BY 4.0",
+      "name": "Online Retail II",
+      "sha256": "572e36277c2390fbfde10664750731e0a86f55e33470d91919085f0408e67bfb",
+      "url": "https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip"
+    },
+    "telco_churn": {
+      "attribution": "IBM sample dataset: Telco Customer Churn.",
+      "bytes": 970457,
+      "licence": "Apache-2.0 (repository licence)",
+      "name": "Telco Customer Churn",
+      "sha256": "16320c9c1ec72448db59aa0a26a0b95401046bef5d02fd3aeb906448e3055e91",
+      "url": "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv"
+    }
+  },
+  "attribution": [
+    {
+      "Dataset": "Online Retail II",
+      "Publisher": "UCI Machine Learning Repository (dataset 502)",
+      "Licence": "CC BY 4.0",
+      "Attribution": "Chen, D. (2012). Online Retail II. UCI Machine Learning Repository.",
+      "Source": "https://archive.ics.uci.edu/dataset/502/online+retail+ii"
+    },
+    {
+      "Dataset": "Telco Customer Churn",
+      "Publisher": "IBM (sample dataset, via the IBM/telco-customer-churn-on-icp4d repository)",
+      "Licence": "Apache-2.0 (repository licence)",
+      "Attribution": "IBM sample dataset: Telco Customer Churn.",
+      "Source": "https://github.com/IBM/telco-customer-churn-on-icp4d"
+    },
+    {
+      "Dataset": "Bank Marketing",
+      "Publisher": "UCI Machine Learning Repository (dataset 222)",
+      "Licence": "CC BY 4.0",
+      "Attribution": "Moro, S., Rita, P., & Cortez, P. (2014). Bank Marketing. UCI Machine Learning Repository.",
+      "Source": "https://archive.ics.uci.edu/dataset/222/bank+marketing"
+    }
+  ]
+}

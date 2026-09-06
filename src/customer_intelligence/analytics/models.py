@@ -33,15 +33,45 @@ from sklearn.metrics import (
     average_precision_score, brier_score_loss, confusion_matrix, f1_score,
     precision_score, recall_score, roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from .features import label, model_features, prepare
+from .features import prepare
 
 # Share of the eligible book the model is allowed to flag. This is a capacity
 # assumption, stated here so it can be argued with.
-CAPACITY_SHARE = {"churned": 0.10, "took_investment": 0.15, "took_lending": 0.15}
+CAPACITY_SHARE = {
+    "churned": 0.10, "took_investment": 0.15, "took_lending": 0.15,
+    # Retail. A wholesale account team can work a bigger share of a 5,900-account
+    # book than a bank team can of fifty thousand, so the capacity assumptions
+    # are larger -- and, as ever, they are assumptions, written down here.
+    "lapsed": 0.25, "grew": 0.25, "took_new_category": 0.20,
+}
+
+# Each domain supplies its own feature contract. Set once per build.
+_CONTRACT = None
+
+
+def use_contract(module) -> None:
+    """Point the trainer at a domain's feature contract."""
+    global _CONTRACT
+    _CONTRACT = module
+
+
+def _contract():
+    if _CONTRACT is None:
+        from . import features as default
+        return default
+    return _CONTRACT
+
+
+def model_features(target: str):
+    return _contract().model_features(target)
+
+
+def label(feature: str) -> str:
+    return _contract().label(feature)
 
 RANDOM_STATE = 42
 
@@ -146,6 +176,16 @@ def train_model(
         })
     comparison = pd.DataFrame(rows).sort_values("ROC-AUC", ascending=False, ignore_index=True)
 
+    # A single train/test split on a few hundred rows is not a measurement, it
+    # is one draw. Re-running this project with the rows in a different order
+    # moved a held-out AUC by 0.05 -- roughly two standard errors -- which is
+    # exactly the kind of movement that gets reported as an improvement.
+    # Repeated stratified cross-validation gives a mean and a spread instead.
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=RANDOM_STATE)
+    cv_pipeline = Pipeline([("prep", _preprocessor(numeric, categorical)),
+                            ("clf", _candidates()["Logistic regression"])])
+    cv_scores = cross_val_score(cv_pipeline, X, y, cv=cv, scoring="roc_auc", n_jobs=-1)
+
     # ---- logistic regression is the model that ships ------------------------
     chosen_name = "Logistic regression"
     model, p_test = fitted[chosen_name]
@@ -166,6 +206,9 @@ def train_model(
         "recall": recall_score(y_test, y_hat, zero_division=0),
         "f1": f1_score(y_test, y_hat, zero_division=0),
         "flagged_share": float(y_hat.mean()),
+        "cv_roc_auc_mean": float(cv_scores.mean()),
+        "cv_roc_auc_std": float(cv_scores.std()),
+        "cv_folds": int(len(cv_scores)),
         "lift": (precision_score(y_test, y_hat, zero_division=0) / y_test.mean()
                  if y_test.mean() > 0 else np.nan),
     }

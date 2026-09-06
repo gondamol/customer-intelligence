@@ -1,10 +1,11 @@
 """Loading the artefacts the pipeline produced.
 
-The application reads; it never computes. Everything expensive -- generation,
-conformance, training, scoring -- happened in the pipeline, and its outputs are
-on disk. That is what keeps every page interactive, and it is also the honest
-separation: a dashboard that fits a model on page load has no reproducible
-answer to "what was this number when I looked at it yesterday?".
+The application reads; it never computes. Everything expensive -- fetching the
+published data, conforming it, building the panel, training, scoring -- happened
+in the pipeline, and its outputs are on disk. That keeps every page
+interactive, and it means the number a reader saw yesterday can be reproduced
+today, because it is a file rather than the output of a fit that happened to run
+while they were looking.
 """
 
 from __future__ import annotations
@@ -27,12 +28,13 @@ MISSING_DATA_MESSAGE = """
 This application reads what the pipeline produced. Build it once:
 
 ```bash
-make setup          # create the environment
-make all            # generate, assess quality, model, score
-make run            # open this application
+make setup      # create the environment
+make all        # fetch the published data, assess quality, model, score
+make run        # open this application
 ```
 
-The full build takes a few minutes on 50,000 customers.
+The build downloads Online Retail II from the UCI Machine Learning Repository
+and takes a few minutes on a first run.
 """
 
 
@@ -58,7 +60,7 @@ def load_json(name: str, where: str = "processed") -> dict:
 
 @st.cache_data(show_spinner=False)
 def customers() -> pd.DataFrame:
-    """The scored book: one row per customer, every score and recommendation."""
+    """The scored book: one row per account, every score and recommendation."""
     return load("customer_360")
 
 
@@ -74,8 +76,19 @@ def customer_history(customer_id: str) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
+def next_best(customer_id: str) -> pd.DataFrame:
+    nb = load("next_best_product")
+    return nb[nb["customer_id"] == customer_id].sort_values("rank")
+
+
+@st.cache_data(show_spinner=False)
 def model_cards() -> dict:
     return load_json("model_cards.json", where="models")
+
+
+@st.cache_data(show_spinner=False)
+def recommender_card() -> dict:
+    return load_json("recommender_card.json", where="models")
 
 
 @st.cache_data(show_spinner=False)
@@ -86,3 +99,8 @@ def quality_summary() -> dict:
 @st.cache_data(show_spinner=False)
 def run_summary() -> dict:
     return load_json("run_summary.json")
+
+
+@st.cache_data(show_spinner=False)
+def sources() -> dict:
+    return load_json("sources.json")

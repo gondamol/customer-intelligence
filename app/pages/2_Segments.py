@@ -1,4 +1,4 @@
-"""Customer segments — a rule set, and the clustering that checks it."""
+"""Customer segments — RFM, and what it does and does not tell you."""
 
 from __future__ import annotations
 
@@ -7,157 +7,141 @@ import streamlit as st
 
 from components.page import setup
 
-setup("Customer segments")
+setup("Segments")
 
-from components import charts, data, ui                     # noqa: E402
-from components.theme import AQUA, BLUE, ORANGE             # noqa: E402
-from customer_intelligence.analytics.segmentation import SEGMENT_DESCRIPTIONS  # noqa: E402
+from components import charts, data, ui                                      # noqa: E402
+from components.theme import AQUA, BLUE, ORANGE                              # noqa: E402
+from customer_intelligence.analytics.retail import SEGMENT_DESCRIPTIONS      # noqa: E402
 
 df = data.customers()
 profiles = data.load("segment_profiles")
 
 ui.page_header(
     "Customer segments",
-    "Who the customers are",
-    "Segmentation exists to make a book of fifty thousand relationships small "
-    "enough to reason about. Two methods are built here, because they answer "
-    "different questions — and the comparison between them is the deliverable.",
+    "Who these accounts are",
+    "Segmentation exists to make a book of six thousand trading relationships "
+    "small enough to reason about. This is RFM — recency, frequency, monetary "
+    "value — which is the standard retail rule set, scored as quintiles within "
+    "this population.",
 )
-ui.synthetic_notice()
+ui.source_notice()
 
-# ------------------------------------------------------------- overview -----
 ui.section("The segments")
-
-o1, o2 = st.columns([1, 1], gap="large")
+o1, o2 = st.columns(2, gap="large")
 with o1:
-    st.markdown("#### Share of customers")
+    st.markdown("#### Share of accounts")
     st.plotly_chart(
         charts.hbar(list(profiles["segment"]), list(profiles["share_of_customers"]),
-                    value_fmt="{:.1f}", label_suffix="%", height=330,
-                    hover_label="Share of customers"),
+                    value_fmt="{:.1f}", label_suffix="%", height=340,
+                    hover_label="Share of accounts"),
         width="stretch",
     )
 with o2:
-    st.markdown("#### Share of balances")
+    st.markdown("#### Share of revenue")
     st.plotly_chart(
-        charts.hbar(list(profiles["segment"]), list(profiles["share_of_balances"]),
-                    value_fmt="{:.1f}", label_suffix="%", height=330, colour=ORANGE,
-                    hover_label="Share of balances"),
+        charts.hbar(list(profiles["segment"]), list(profiles["share_of_revenue"]),
+                    value_fmt="{:.1f}", label_suffix="%", height=340, colour=ORANGE,
+                    hover_label="Share of revenue"),
         width="stretch",
     )
 
-top = profiles.loc[profiles["share_of_balances"].idxmax()]
-ui.note(
-    f"The two charts are the point. <b>{top['segment']}</b> is "
-    f"{top['share_of_customers']:.1f}% of customers and "
-    f"{top['share_of_balances']:.1f}% of balances. Any segmentation where the "
-    "two bars have the same shape has not found anything — it has re-drawn the "
-    "customer count twice."
-)
+champ = profiles[profiles["segment"] == "Champions"]
+lost = profiles[profiles["segment"] == "Lost"]
+if not champ.empty and not lost.empty:
+    ui.note(
+        f"<b>Champions</b> are {champ['share_of_customers'].iat[0]:.1f}% of accounts "
+        f"and {champ['share_of_revenue'].iat[0]:.1f}% of revenue. <b>Lost</b> are "
+        f"{lost['share_of_customers'].iat[0]:.1f}% of accounts and "
+        f"{lost['share_of_revenue'].iat[0]:.1f}%. That asymmetry is the entire "
+        "argument for segmenting at all — and it is why the account-manager "
+        "caseload is built from the left-hand chart weighted by the right-hand one."
+    )
 
-# -------------------------------------------------------------- profiles ----
 ui.section(
     "What each segment looks like",
-    "The table an operating team actually uses: not cluster centroids, but the "
-    "handful of measures a relationship is managed on.",
+    "The table an account team actually uses: not cluster centroids, but the "
+    "handful of measures a wholesale relationship is managed on.",
 )
-
 display = profiles[[
-    "segment", "customers", "share_of_customers", "avg_balance", "avg_products",
-    "avg_monthly_transactions", "avg_logins", "digital_share",
-    "avg_loan_exposure", "arrears_rate", "avg_tenure",
+    "segment", "customers", "share_of_customers", "avg_revenue", "avg_orders",
+    "avg_order_value", "avg_months_since_order", "active_months",
+    "distinct_categories", "avg_cadence", "return_rate",
 ]].copy()
-display.columns = [
-    "Segment", "Customers", "Share %", "Avg balance", "Products",
-    "Txns / month", "Logins / month", "Digital share", "Loan exposure",
-    "Arrears rate", "Tenure (months)",
-]
+display.columns = ["Segment", "Accounts", "Share %", "Avg revenue", "Avg orders",
+                   "Avg order value", "Months since order", "Active months",
+                   "Categories", "Usual gap", "Return rate"]
 st.dataframe(
     display.style.format({
-        "Customers": "{:,.0f}", "Share %": "{:.1f}%", "Avg balance": "{:,.0f}",
-        "Products": "{:.1f}", "Txns / month": "{:.1f}", "Logins / month": "{:.1f}",
-        "Digital share": "{:.0%}", "Loan exposure": "{:,.0f}",
-        "Arrears rate": "{:.1%}", "Tenure (months)": "{:.0f}",
+        "Accounts": "{:,.0f}", "Share %": "{:.1f}%", "Avg revenue": "£{:,.0f}",
+        "Avg orders": "{:.1f}", "Avg order value": "£{:,.0f}",
+        "Months since order": "{:.1f}", "Active months": "{:.1f}",
+        "Categories": "{:.1f}", "Usual gap": "{:.1f}", "Return rate": "{:.1%}",
     }),
     width="stretch", hide_index=True,
 )
 
 with st.expander("What each segment means, in business language"):
     for _, r in profiles.iterrows():
-        st.markdown(
-            f"**{r['segment']}** — {r['customers']:,.0f} customers "
-            f"({r['share_of_customers']:.1f}%). "
-            f"{SEGMENT_DESCRIPTIONS.get(r['segment'], '')}"
-        )
+        st.markdown(f"**{r['segment']}** — {r['customers']:,.0f} accounts "
+                    f"({r['share_of_customers']:.1f}%). "
+                    f"{SEGMENT_DESCRIPTIONS.get(r['segment'], '')}")
 
-# ------------------------------------------------------------ comparison ----
 ui.section(
-    "Rules against clustering",
-    "K-means was run on the same customers, over the same behavioural measures, "
-    "with no knowledge of the rules.",
+    "Why RFM, and not a clustering",
+    "The synthetic version of this project ran K-means alongside its rules and "
+    "found a silhouette of 0.15 — no natural clusters. The same is true here, "
+    "and for the same reason.",
+)
+st.markdown(
+    """
+Customers sit on continuous gradients of value, frequency and recency. There is
+no seam in the data where one group ends and another begins, so **any**
+partition of them is a decision somebody made rather than a structure waiting to
+be discovered.
+
+Given that, the question is not "which method finds the true segments" — none
+of them will, because there aren't any. The question is which partition is most
+useful to operate, and that argues for published rules over a fitted clustering
+on three counts:
+
+- **Stability.** An account lands in the same segment next month unless its
+  behaviour changed. A re-fitted clustering can move accounts because the
+  algorithm re-initialised.
+- **Explicability.** "Ordered recently, orders often, spends a lot" is a
+  sentence an account manager can act on and argue with. "Cluster 4" is not.
+- **Continuity.** The thresholds are quintiles of this population, published in
+  `analytics/retail.py`. When the book changes, the definition moves in a way
+  that can be read.
+
+RFM is not chosen here because it is sophisticated. It is chosen because it is
+the right shape for the decision, and the more sophisticated alternative was
+tested and had nothing to add.
+"""
 )
 
-diagnostics = data.load("cluster_diagnostics")
-best = diagnostics.loc[diagnostics["silhouette"].idxmax()]
-
-c1, c2 = st.columns([1, 1.25], gap="large")
-with c1:
-    st.markdown("#### How well-separated are the clusters?")
-    st.plotly_chart(
-        charts.trend_lines(diagnostics, "k", {"silhouette": "Silhouette score"},
-                           y_title="Silhouette", value_fmt=":.3f", height=270),
-        width="stretch",
-    )
-    ui.panel("Clustering diagnostics", [
-        ("Best k by silhouette", f"{int(best['k'])}"),
-        ("Silhouette at best k", f"{best['silhouette']:.3f}"),
-        ("k used in production", "6"),
-    ])
-
-with c2:
-    st.markdown("#### Where the two methods agree")
-    crosstab = data.load("segment_cluster_crosstab").set_index("segment")
-    st.dataframe(crosstab, width="stretch")
-
-ui.note(
-    f"The silhouette score peaks at {best['silhouette']:.3f}. That is weak — a "
-    "well-separated clustering scores above about 0.5 — and it is the honest "
-    "finding rather than a disappointment: this customer book does not fall "
-    "into naturally distinct groups. Customers sit on continuous gradients of "
-    "wealth, engagement and credit appetite, and any partition of them is a "
-    "decision someone made, not a structure waiting to be discovered. "
-    "<b>That is precisely the argument for the rule set.</b> If the segments "
-    "are a management choice either way, they should be the choice that is "
-    "stable month to month, explicable to the people who act on it, and "
-    "unchanged by a re-run — which a clustering is not."
-)
-
-# ----------------------------------------------------------- exploration ----
 ui.section("Compare segments on any measure")
-
 metric = st.selectbox(
     "Measure",
-    ["avg_monthly_balance", "product_count", "avg_monthly_transactions",
-     "avg_monthly_logins", "digital_share", "loan_exposure",
-     "opportunity_score", "churn_probability", "tenure_months"],
+    ["revenue", "invoices", "avg_order_value", "months_since_last_order",
+     "active_months", "distinct_categories", "distinct_products",
+     "opportunity_score", "lapse_risk", "return_rate", "cadence_overdue"],
     format_func=lambda c: {
-        "avg_monthly_balance": "Average monthly balance",
-        "product_count": "Products held",
-        "avg_monthly_transactions": "Transactions per month",
-        "avg_monthly_logins": "Logins per month",
-        "digital_share": "Share of activity digital",
-        "loan_exposure": "Loan exposure",
-        "opportunity_score": "Relationship opportunity score",
-        "churn_probability": "Attrition risk",
-        "tenure_months": "Tenure (months)",
+        "revenue": "Revenue in window", "invoices": "Orders placed",
+        "avg_order_value": "Average order value",
+        "months_since_last_order": "Months since last order",
+        "active_months": "Months with an order",
+        "distinct_categories": "Categories bought from",
+        "distinct_products": "Distinct products bought",
+        "opportunity_score": "Relationship opportunity",
+        "lapse_risk": "Lapse risk", "return_rate": "Return rate",
+        "cadence_overdue": "Past their usual gap by",
     }[c],
 )
-
 by_segment = df.groupby("segment", observed=True)[metric].mean().reset_index()
 by_segment = by_segment.sort_values(metric, ascending=False)
-fmt = "{:.1%}" if metric in ("digital_share", "churn_probability") else "{:,.1f}"
+fmt = "{:.1%}" if metric in ("lapse_risk", "return_rate") else "{:,.1f}"
 st.plotly_chart(
     charts.hbar(list(by_segment["segment"]), list(by_segment[metric]),
-                value_fmt=fmt, height=330, hover_label="Segment average"),
+                value_fmt=fmt, height=340, hover_label="Segment average"),
     width="stretch",
 )

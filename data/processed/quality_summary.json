@@ -1,0 +1,9 @@
+{
+  "score": 97.26527223780903,
+  "checks_run": 22,
+  "checks_passed": 10,
+  "checks_failed": 12,
+  "rows_affected": 284899,
+  "customers_affected": 1968,
+  "customers_affected_pct": 33.27696990192763
+}

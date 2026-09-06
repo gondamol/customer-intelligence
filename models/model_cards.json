@@ -1,0 +1,72 @@
+{
+  "lapse": {
+    "target": "lapsed",
+    "display_name": "Lapse risk",
+    "metrics": {
+      "mean_predicted": 0.45290886567629157,
+      "observed_rate": 0.454337899543379,
+      "roc_auc": 0.760286789596518,
+      "pr_auc": 0.7267107358024038,
+      "brier": 0.19916032361431035,
+      "precision": 0.7727272727272727,
+      "recall": 0.4271356783919598,
+      "f1": 0.5501618122977346,
+      "flagged_share": 0.2511415525114155,
+      "cv_roc_auc_mean": 0.7349450922512744,
+      "cv_roc_auc_std": 0.03477649124159413,
+      "cv_folds": 15.0,
+      "lift": 1.700776610324349
+    },
+    "threshold": 0.6271946646367271,
+    "base_rate": 0.4554794520547945,
+    "n_train": 1314,
+    "n_test": 438,
+    "eligible": 1752,
+    "confusion": [
+      [
+        214,
+        25
+      ],
+      [
+        114,
+        85
+      ]
+    ],
+    "chosen": "Logistic regression"
+  },
+  "growth": {
+    "target": "grew",
+    "display_name": "Growth propensity",
+    "metrics": {
+      "mean_predicted": 0.24003090644026623,
+      "observed_rate": 0.23972602739726026,
+      "roc_auc": 0.7167310167310168,
+      "pr_auc": 0.447697436691674,
+      "brier": 0.16257528665988039,
+      "precision": 0.3972602739726027,
+      "recall": 0.4142857142857143,
+      "f1": 0.40559440559440557,
+      "flagged_share": 0.25,
+      "cv_roc_auc_mean": 0.68040070645201,
+      "cv_roc_auc_std": 0.03310627170404368,
+      "cv_folds": 15.0,
+      "lift": 1.6571428571428573
+    },
+    "threshold": 0.3048547139350573,
+    "base_rate": 0.2405821917808219,
+    "n_train": 876,
+    "n_test": 292,
+    "eligible": 1168,
+    "confusion": [
+      [
+        178,
+        44
+      ],
+      [
+        41,
+        29
+      ]
+    ],
+    "chosen": "Logistic regression"
+  }
+}

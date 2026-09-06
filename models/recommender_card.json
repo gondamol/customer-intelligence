@@ -1,0 +1,31 @@
+{
+  "granularity": "product",
+  "products_considered": 400,
+  "product_level": {
+    "5": {
+      "accounts_evaluated": 1161,
+      "hit_rate_at_k": 0.3143841515934539,
+      "popularity_baseline": 0.21102497846683893,
+      "k": 5
+    },
+    "10": {
+      "accounts_evaluated": 1161,
+      "hit_rate_at_k": 0.45650301464254955,
+      "popularity_baseline": 0.32472006890611543,
+      "k": 10
+    },
+    "20": {
+      "accounts_evaluated": 1161,
+      "hit_rate_at_k": 0.6149870801033591,
+      "popularity_baseline": 0.47459086993970717,
+      "k": 20
+    }
+  },
+  "category_level": {
+    "accounts_evaluated": 452,
+    "hit_rate_at_k": 0.9269911504424779,
+    "popularity_baseline": 0.9358407079646017,
+    "k": 3
+  },
+  "why": "A category-level recommender was built first and did not beat a popularity baseline. The median account already buys 9 of the 12 categories, so 'the top 3 you do not buy' is most of what is left and the evaluation is close to degenerate. At product level the median account buys 18 of the top 400, the problem is real, and item-to-item collaborative filtering beats popularity by about 1.5x at k=5."
+}
