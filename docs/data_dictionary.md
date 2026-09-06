@@ -1,149 +1,169 @@
 # Data dictionary
 
-Every field in the source layer, what it means in business terms, how sensitive
-it would be in a real deployment, and the rule that validates it.
+Every field, what it means in business terms, how sensitive it would be in a real
+deployment, and the rule that validates it.
 
-**Sensitivity classifications** describe how each field *would* be treated if the
-data were real. All data here is synthetic and none of it is confidential; the
+**Source:** Online Retail II — Chen, D. (2012), UCI Machine Learning Repository,
+CC BY 4.0. Monetary amounts are pounds sterling as published.
+
+**Sensitivity classifications** describe how each field *would* be treated in a
+live system. This dataset is pseudonymous and openly published; the
 classification is part of the demonstration, because deciding sensitivity before
-building is what stops a system from quietly becoming one that should not exist.
+building is what stops a system becoming one that should not exist.
 
 | Class | Meaning |
 |---|---|
 | **Identifier** | Keys a record. Pseudonymous here by construction. |
-| **Internal** | Ordinary operational data. Restricted to the analytical team. |
-| **Sensitive** | Would be personal or financial data under most regimes. Access logged, minimised, and justified per use. |
-| **Derived** | Produced by this system. Carries the sensitivity of its inputs plus the risk of being mistaken for fact. |
-
-Monetary amounts are in **monetary units (MU)** — deliberately unnamed, so no
-figure can be read as a currency amount for any real market.
+| **Internal** | Ordinary operational data, restricted to the analytical team. |
+| **Commercial** | Reveals a customer's trading position. Access justified per use. |
+| **Derived** | Produced by this system. Carries its inputs' sensitivity plus the risk of being mistaken for fact. |
 
 ---
 
-## `customers` — one row per customer
+## As published
 
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `customer_id` | string | Unique synthetic customer identifier. The join key for the entire model. | `C` + 6 digits | Identifier | Unique, non-null |
-| `age` | integer | Age in years. Drives life-stage product relevance. | 18–100 | Sensitive | Between 18 and 100; impossible values nulled, never imputed |
-| `gender` | string | Recorded gender. Held for outcome monitoring only; **excluded from every model** — see note below. | Female, Male | Sensitive | In the permitted set |
-| `region` | string | Geographic region of the primary relationship. | 7 named regions | Internal | Non-null after conformance (`Unknown` where absent) |
-| `employment_type` | string | Employment category. Context for income stability. | Salaried, Self-employed, Business owner, Informal, Retired | Sensitive | In the permitted set |
-| `income_band` | string | Banded declared income. Banded rather than exact to reduce precision to what the analysis needs. | Band 1–5, Unknown | Sensitive | In the permitted set |
-| `monthly_income` | numeric | Declared monthly income in MU. | > 0 | Sensitive | Positive where present |
-| `tenure_months` | integer | Months since the relationship opened. | ≥ 0 | Internal | Cannot exceed `(age − 17) × 12` |
-| `customer_segment` | string | Segment declared at source. **Excluded from every model** — see `model_governance.md`. | 7 named segments | Derived | In the permitted set |
-| `join_date` | date | Date the relationship opened. | ≤ reporting close | Internal | Consistent with `tenure_months` |
+The source ships a single sheet with eight columns.
 
-> **On `gender`:** it is carried in the source data and shown in the Customer
-> 360 profile, because a real extract would contain it and pretending otherwise
-> would misrepresent the problem. It is **not** an input to any model. "It was
-> in the data" is not a reason to let a commercial targeting model condition on
-> a protected attribute — if the model found it predictive, that would be the
-> problem rather than the justification. It is retained for outcome
-> *monitoring*: checking whether flag rates and recommended actions differ
-> across groups, which is the use that justifies holding the attribute at all.
-> `tests/test_leakage.py::test_gender_is_not_a_model_feature` enforces this.
-
-## `accounts` — one row per account
-
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `account_id` | string | Unique account identifier. | `A` + 7 digits | Identifier | Unique, non-null |
-| `customer_id` | string | Owning customer. | FK → `customers` | Identifier | Must resolve; orphans dropped |
-| `account_type` | string | Product class of the account. | Current, Savings, Fixed deposit, Wallet | Internal | In the permitted set |
-| `opening_date` | date | When the account was opened. | ≤ reporting close | Internal | Not in the future |
-| `status` | string | Operational state. | Active, Dormant, Closed, Unknown | Internal | Mapped to the controlled vocabulary |
-| `average_balance` | numeric | Mean balance over the observation period, MU. | ≥ 0 for deposit products | Sensitive | Non-negative on Savings / Fixed deposit |
-| `current_balance` | numeric | Balance at the close of the window, MU. | ≥ 0 for deposit products | Sensitive | Negative deposit balances nulled as sign errors |
-
-## `account_monthly_balances` — one row per account per month
-
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `account_id` | string | Account the balance belongs to. | FK → `accounts` | Identifier | Must resolve |
-| `customer_id` | string | Owning customer. | FK → `customers` | Identifier | Must resolve |
-| `month` | date | First day of the calendar month. | Panel months | Internal | Within the panel |
-| `month_index` | integer | Month number, 1 = first panel month. | 1–15 | Internal | Within the panel |
-| `closing_balance` | numeric | Month-end balance, MU. The basis of every balance trend. | ≥ 0 | Sensitive | Non-negative |
-
-## `transactions` — one row per posting
-
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `transaction_id` | string | Unique posting identifier. | `T` + 9 digits | Identifier | Unique; duplicates are retries and are dropped |
-| `customer_id` | string | Transacting customer. | FK → `customers` | Identifier | Must resolve |
-| `account_id` | string | Account debited or credited. Must belong to the same customer. | FK → `accounts` | Identifier | Must resolve to the customer's own account |
-| `transaction_date` | date | Date of the posting. | < reporting close | Internal | Not after the reporting close |
-| `transaction_type` | string | Direction of the money. | Credit, Debit | Internal | In the permitted set |
-| `amount` | numeric | Value in MU. | > 0, ≤ 5,000,000 | Sensitive | Positive; beyond the ceiling it is quarantined, not capped |
-| `channel` | string | Where the transaction happened. Basis of digital engagement. | Mobile app, Internet banking, Branch, ATM, Agent, Card POS | Internal | In the permitted set |
-| `merchant_category` | string | Spend category. | 12 categories | Sensitive | In the permitted set |
-
-## `loans` — one row per facility
-
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `loan_id` | string | Unique facility identifier. | `L` + 7 digits | Identifier | Unique, non-null |
-| `customer_id` | string | Borrowing customer. | FK → `customers` | Identifier | Must resolve |
-| `loan_type` | string | Facility class. | Personal loan, Asset finance, Overdraft, Microloan | Internal | In the permitted set |
-| `principal` | numeric | Amount originally advanced, MU. | > 0 | Sensitive | Positive |
-| `outstanding_balance` | numeric | Amount still owed, MU. | 0 ≤ x ≤ 1.5 × principal | Sensitive | Cannot exceed the principal advanced |
-| `interest_rate` | numeric | Annual rate, as a decimal. | 0.07–0.36 | Sensitive | Required on any facility not Closed |
-| `term_months` | integer | Contractual term. | 12–60 | Internal | In the permitted set |
-| `repayment_status` | string | Current standing. Drives the arrears guardrail in the decision engine. | Current, Late 1-30, Late 31-90, Default, Closed | Sensitive | In the permitted set |
-| `origination_date` | date | When the facility was advanced. | ≤ reporting close | Internal | Not in the future |
-
-## `products` — one row per holding
-
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `customer_id` | string | Holding customer. | FK → `customers` | Identifier | Must resolve |
-| `product_type` | string | Canonical product name. Source spellings are mapped on conformance. | 8 canonical names | Internal | In the canonical vocabulary |
-| `start_date` | date | When the holding began. | — | Internal | — |
-| `start_month_index` | integer | Panel month the holding began. **Governs leakage**: a holding starting after the window close is never counted. | integer | Internal | ≤ window close for any feature |
-| `status` | string | Whether the holding is live. | Active, Closed | Internal | In the permitted set |
-
-## `digital_activity` — one row per customer per month
-
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `customer_id` | string | The customer. | FK → `customers` | Identifier | Must resolve |
-| `month` / `month_index` | date / int | Panel month. | 1–15 | Internal | Within the panel |
-| `mobile_logins` | integer | App sessions. Leading indicator of engagement. | ≥ 0 | Internal | Non-negative |
-| `online_logins` | integer | Web sessions. | ≥ 0 | Internal | Non-negative |
-| `digital_transactions` | integer | Transactions initiated in a digital channel. | ≥ 0, ≤ transaction count | Internal | Non-negative |
-| `failed_logins` | integer | Failed authentication attempts. Friction signal. | ≥ 0 | Internal | Non-negative |
-
-## `service_interactions` — one row per contact
-
-| Field | Type | Description & business meaning | Allowed values | Sensitivity | Validation rule |
-|---|---|---|---|---|---|
-| `interaction_id` | string | Unique contact identifier. | `S` + 8 digits | Identifier | Unique, non-null |
-| `customer_id` | string | The customer. | FK → `customers` | Identifier | Must resolve |
-| `interaction_date` | date | Date of contact. | Within the panel | Internal | Within the panel |
-| `channel` | string | How they got in touch. | Call centre, Branch, In-app chat, Email, Social | Internal | In the permitted set |
-| `interaction_type` | string | What it was about. Complaints drive the service-recovery rule. | Query, Complaint, Service request, Product enquiry, Dispute | Sensitive | In the permitted set |
-| `resolution_status` | string | Whether it was closed out. Unresolved contacts outrank commercial actions. | Resolved, Pending, Escalated, Unresolved | Internal | In the permitted set |
-| `satisfaction_score` | integer | Post-contact rating. **Missing not at random** — dissatisfied customers respond less. | 1–5, or null | Sensitive | In range where present |
+| Field | Type | Description | Sensitivity | What is wrong with it |
+|---|---|---|---|---|
+| `Invoice` | mixed | Invoice number. `C`-prefixed values are **credit notes**, not sales. | Identifier | Mixes integers and strings; read as numeric, 19,494 credit notes vanish |
+| `StockCode` | mixed | Product code. 0.57% are administrative, not products. | Identifier | Mixed case for the same admin concept (`M` / `m`) |
+| `Description` | string | Product description. | Internal | 4,382 missing; 1,215 codes carry conflicting descriptions |
+| `Quantity` | integer | Units. Negative on returns. | Commercial | 22,950 negative; 3,427 on invoices that are not credit notes |
+| `InvoiceDate` | datetime | Timestamp of the invoice. | Internal | December 2011 is a partial month |
+| `Price` | float | Unit price. | Commercial | 6,207 at zero or below |
+| `Customer ID` | float | Customer identifier. | Identifier | **243,007 rows are null** |
+| `Country` | string | Billing country. | Internal | 13 accounts invoice to more than one |
 
 ---
 
-## Derived fields worth explaining
+## `transactions` — one row per invoice line
 
-These are produced by `sql/03_customer_360.sql` and are what the models actually
-consume. All are **Derived** sensitivity.
+| Field | Type | Business meaning | Allowed values | Sensitivity | Validation |
+|---|---|---|---|---|---|
+| `line_id` | integer | Surrogate key assigned on load | > 0 | Identifier | Unique |
+| `invoice_id` | string | Invoice this line belongs to | `C`-prefix = credit note | Identifier | Non-null |
+| `customer_id` | string | Owning account, `C` + digits | null where unattributed | Identifier | Must resolve where present |
+| `stock_code` | string | Product or administrative code | — | Identifier | Case-normalised for admin codes only |
+| `description` | string | What was sold | — | Internal | Non-null in the conformed layer |
+| `quantity` | integer | Units; negative on a return | ≠ 0 | Commercial | Positive on a sale line |
+| `unit_price` | float | Price per unit, £ | > 0 on a sale | Commercial | Positive on a sale line |
+| `line_value` | float | `quantity × unit_price`, £ | — | Commercial | \|value\| ≤ £50,000 |
+| `invoice_date` | datetime | When it was invoiced | Within the panel | Internal | 2009-12-01 to 2011-11-30 |
+| `month_index` | integer | Panel month, 1 = Dec 2009 | 1–24 | Derived | Within the panel |
+| `country` | string | Billing country | 43 values | Internal | — |
+| `is_return` | boolean | Line sits on a credit note | — | Derived | — |
+| `is_product` | boolean | A product, not a charge | — | Derived | — |
+| `line_type` | string | Classification of the line | 12 values | Derived | In the vocabulary |
+
+### `line_type` — the classification that keeps charges out of product analysis
+
+| Value | What it is | Example scale |
+|---|---|---|
+| `Product` | An actual product | 99.4% of lines |
+| `Postage`, `Carriage` | Shipping charged to the customer | £434,988 |
+| `Manual adjustment` | Booked by hand (`M`, `m`, `ADJUST`, `PADS`) | −£82,796 |
+| `Discount` | Discount line | −£13,485 |
+| `Samples` | Samples sent | −£6,066 |
+| `Bank charges` | Bank fees booked to the ledger | −£35,563 |
+| `Marketplace commission` | Amazon commission | **−£260,764** |
+| `Charity commission` | CRUK commission | −£7,933 |
+| `Bad debt adjustment` | Written off | **−£147,614** |
+| `Gift voucher` | Vouchers sold | — |
+| `Test data` | **"This is a test product"** | 17 lines |
+
+## `products` — one row per stock code
+
+| Field | Type | Business meaning | Sensitivity | Validation |
+|---|---|---|---|---|
+| `stock_code` | string | Product code | Identifier | Unique |
+| `description` | string | **Modal** description across all lines for that code | Internal | Modal, because 1,215 codes carry more than one |
+| `category` | string | **Derived** taxonomy, 11 categories + `Other giftware` | Derived | In the vocabulary |
+| `median_price` | float | Median unit price, £ | Commercial | > 0 |
+| `lines`, `units`, `revenue` | numeric | Lifetime totals | Commercial | ≥ 0 |
+| `first_month`, `last_month` | integer | Panel months first and last sold | Derived | 1–24 |
+
+**The taxonomy is a judgement.** Ordered keyword rules over the description text,
+published in `sources/retail.py`, covering 87.7% of revenue. Order matters:
+seasonal and occasion rules are tested before material and form rules, so a
+Christmas candle is Christmas stock rather than candle stock, because that is how
+it is bought.
+
+## `customers` — one row per identified account
+
+| Field | Type | Business meaning | Sensitivity | Validation |
+|---|---|---|---|---|
+| `customer_id` | string | Pseudonymous account identifier | Identifier | Unique, non-null |
+| `country` | string | Modal billing country | Internal | — |
+| `countries_seen` | integer | Distinct countries invoiced | Derived | Flagged where > 1 |
+| `first_invoice_date` | datetime | First order | Internal | Within the panel |
+| `first_month_index` | integer | Panel month of first order | Derived | Bounds the monthly spine |
+| `invoices` | integer | Lifetime order count | Commercial | > 0 |
+
+## `invoices` — one row per invoice
+
+Grain: `invoice_id`. Carries customer, date, month index, line count, units,
+value, country, and whether it is a credit note.
+
+---
+
+## Derived — the Customer 360
+
+Produced by `retail_03_customer_360.sql` over a bounded month window. All
+**Derived** sensitivity. These are what the models actually consume.
+
+### Recency, frequency, monetary
 
 | Field | How it is computed | Why it exists |
 |---|---|---|
-| `balance_trend` | Mean balance over the last 3 months of the window ÷ mean over the first 3. Defaults to 1.0 when the base is zero. | Direction of travel. A high-balance customer in steep decline and a low-balance customer growing steadily look identical on level alone. |
-| `transaction_trend` | Same construction on transaction counts. | The strongest single attrition signal in the model. |
-| `digital_trend` | Same construction on total logins. | Disengagement usually shows in the channel before it shows in the balance. |
-| `months_since_last_activity` | Window close minus the last month with any transaction. | Silence, measured. Requires the full monthly spine — a panel built by aggregating transactions alone would drop exactly these customers. |
-| `active_months` | Count of months in the window with at least one transaction. | Distinguishes a consistently light user from one who stopped. |
-| `digital_share` | Digital transactions ÷ all transactions. | Cost to serve, and which channel a recommendation should use. |
-| `balance_to_income` | Average monthly balance ÷ declared monthly income. | Financial posture. The observable trace of credit appetite, which is otherwise latent. |
-| `outflow_to_inflow` | Total debits ÷ total credits. | How much of what arrives leaves again. |
-| `opportunity_score` | Weighted sum of five percentile-ranked components. Weights published in `config.py`. | Headroom in the relationship. **Not a revenue figure.** |
-| `churn_probability` | Logistic regression on the 12-month feature window. | Modelled attrition risk. A probability, not a verdict. |
-| `investment_propensity` / `lending_propensity` | Logistic regression on the eligible population only. Null where the customer already holds the product. | Likelihood of uptake next period. **Not a suitability or credit assessment.** |
+| `months_since_last_order` | Window close minus last active month | The classic recency measure |
+| `active_months` | Months in the window with an order | Distinguishes a light regular buyer from one who stopped |
+| `invoices`, `revenue`, `units`, `lines` | Sums over the window | Frequency and value |
+| `avg_order_value` | `revenue / invoices` | Order size, independent of frequency |
+| `avg_monthly_revenue`, `peak_monthly_revenue` | Mean and max monthly | Level and best case |
+| `revenue_last_quarter` | Last three months of the window | Where the account is *now* |
+
+### Ordering rhythm — the features that carry the lapse model
+
+| Field | How it is computed | Why it exists |
+|---|---|---|
+| `avg_months_between_orders` | Mean gap between active months | Every account has a cadence |
+| `max_months_between_orders` | Longest observed gap | How quiet this account gets normally |
+| `gap_variability` | Standard deviation of gaps | Steady or erratic |
+| **`cadence_overdue`** | Months silent ÷ usual gap | **The strongest single input to the lapse model.** A quarterly buyer and a weekly buyer both six weeks silent are in entirely different states, and only this feature can tell them apart |
+
+### Breadth and mix
+
+| Field | How it is computed | Why it exists |
+|---|---|---|
+| `distinct_products`, `distinct_categories` | Counted within the window | Depth of the relationship |
+| `lines_per_order` | Lines ÷ invoices | Basket shape |
+| `avg_unit_price` | Mean unit price paid | Premium or value buyer |
+| `share_christmas` … `share_jewellery` | Category spend ÷ total spend | **Shares, not amounts**: a large and a small account buying the same mix should look alike on mix and differ on value |
+
+### Friction
+
+| Field | How it is computed | Why it exists |
+|---|---|---|
+| `return_lines`, `return_value` | From the separated returns table | Never netted off sales |
+| `return_rate` | `return_value / revenue` | Drives the service-recovery rule at ≥ 20% |
+| `discount_rate` | `discounts / revenue` | Margin pressure |
+| `postage` | Postage and carriage paid | Cost to serve |
+
+### Direction of travel
+
+| Field | How it is computed | Why it exists |
+|---|---|---|
+| `revenue_trend`, `order_trend` | Last 3 months ÷ first 3, floored at 1.0 when the base is zero | Level says what an account is; trend says where it is going |
+
+### Scores
+
+| Field | Meaning | Not |
+|---|---|---|
+| `lapse_risk` | P(no order next quarter). **Null** where not scoreable | A statement they have left |
+| `growth_propensity` | P(beats the same quarter a year earlier). **Null** where not scoreable | A revenue forecast |
+| `opportunity_score` | Weighted sum of five percentile-ranked components, 0–100 | A revenue figure |
+| `next_best_product` | Top item from the recommender | A prediction that they will buy it |
+| `segment` | RFM rule set, quintiles within this book | A fitted clustering |
+| `quadrant` | Risk × opportunity placement, or `Not scored` | A placement invented from a missing score |
+| `scoreable` | ≥3 active months in the window | A judgement about account value |

@@ -168,9 +168,9 @@ policy, mistakes included.
 6. Deliberately nothing  →  a reachable outcome, recorded as a decision
 ```
 
-**14% of accounts reach a named account manager** — and they hold most of the
-revenue. An engine routing more than that to human contact has produced a wish
-list, not a plan, so the check is on the page.
+**15% of accounts reach a named account manager**, and they hold **48% of the
+revenue**. An engine routing much more than that to human contact has produced a
+wish list, not a plan, so the check is on the page rather than in a footnote.
 
 ### Accounts the models refuse to score
 

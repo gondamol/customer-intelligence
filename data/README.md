@@ -1,53 +1,47 @@
 # Data
 
-Nothing in this directory is committed. The pipeline rebuilds all of it from a
-fixed seed in a few minutes, and committing a few hundred megabytes of synthetic
-parquet would help nobody.
+## `external/` — the published source data (never committed)
+
+Downloaded from the original publisher at build time and cached by SHA-256.
+Nothing here is redistributed in this repository; the licence travels with the
+data rather than being assumed.
+
+| Dataset | Publisher | Licence |
+|---|---|---|
+| Online Retail II | UCI ML Repository (502) — Chen, D. (2012) | CC BY 4.0 |
+| Telco Customer Churn | IBM sample data | Apache-2.0 (repository) |
+| Bank Marketing | UCI ML Repository (222) — Moro, Rita & Cortez (2014) | CC BY 4.0 |
 
 ```bash
-make all        # 50,000 customers, the full build
-make demo       # 8,000 customers, if you only want to look around
+make fetch      # download and cache
 ```
 
-## `raw/` — as landed, defects intact
+`sources.json` records what was retrieved, when, its size and its hash.
 
-The eight source tables, written exactly as a set of source-system extracts would
-arrive, **including sixteen deliberately injected defect types**. This layer is
-not cleaned and is not meant to be trusted; it exists so the quality framework
-has something real to detect.
+## `raw/` — the landed source tables (never committed)
 
-| Table | Grain |
-|---|---|
-| `customers` | one row per customer |
-| `accounts` | one row per account |
-| `account_monthly_balances` | one row per account per month |
-| `transactions` | one row per posting |
-| `loans` | one row per facility |
-| `products` | one row per holding |
-| `digital_activity` | one row per customer per month |
-| `service_interactions` | one row per contact |
+Online Retail II reshaped into `transactions`, `products`, `customers` and
+`invoices`, **with every defect intact**. This layer is not cleaned and is not
+meant to be trusted; it exists so the quality framework has something real to
+detect.
 
-`defect_manifest.json` records exactly what was injected and how much of it,
-which is what allows the checks to be graded against a known answer.
+## `processed/` — the derived artefacts (committed)
 
-## `processed/` — analysis-ready
+About 3.4 MB. These are what the deployed application reads, which is why they
+are in the repository — under CC BY 4.0 an adaptation may be redistributed with
+attribution, and every page of the application carries it.
 
 | Artefact | What it is |
 |---|---|
-| `customer_360.parquet` | **The main artefact.** One row per customer: features, scores, segment, opportunity, quadrant, recommended action |
-| `customer_360_train.parquet` | The training snapshot (months 1–12) |
-| `customer_360_score.parquet` | The scoring snapshot (months 4–15) |
-| `monthly_customer_metrics.parquet` | The customer × month panel, silent months included |
-| `outcomes.parquet` | The three modelled labels and their eligibility flags |
-| `quality_*.parquet` | Check results, dimension scores, customer impact, reconciliation |
-| `conformance_log.parquet` | Every row the cleanse removed, and why |
+| `customer_360.parquet` | **The main artefact.** One row per account: features, scores, segment, opportunity, quadrant, recommended product and action |
+| `customer_360_train/_score.parquet` | The two snapshots (months 1–12 and 13–24) |
+| `monthly_customer_metrics.parquet` | The account × month panel, silent months included |
+| `outcomes.parquet` | Modelled labels and eligibility flags |
+| `next_best_product.parquet` | Top five recommendations per account |
+| `quality_*.parquet` | Check results, dimension scores, account impact |
+| `conformance_log.parquet` | Every line the cleanse removed, and why |
 | `segment_profiles.parquet` | Segment characteristics in business terms |
 | `model_*_*.parquet` | Per-model comparison, importance, coefficients, calibration |
-| `quality_summary.json`, `run_summary.json` | Headline figures the application reads |
+| `*.json` | Headline figures, provenance and attribution the app reads |
 
-## Synthetic data notice
-
-All of it is generated. There are no real customers, no real transactions, and no
-real portfolio. The generator produces **no names, addresses, contact details,
-national identifiers or dates of birth** — none are needed to demonstrate any of
-the analytics, and the cheapest privacy control is data that was never collected.
+Rebuild everything from source with `make all`.
