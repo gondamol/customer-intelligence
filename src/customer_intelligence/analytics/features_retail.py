@@ -30,6 +30,26 @@ NUMERIC_FEATURES = [
 
 CATEGORICAL_FEATURES = ["country"]
 
+# Money and counts in a wholesale book are heavy-tailed: revenue runs from £3 to
+# £280,000 and the largest account's best month is fourteen standard deviations
+# above the mean. Standardising those raw and feeding them to a linear model
+# means the model extrapolates far outside anything it was trained on, and the
+# sigmoid saturates -- one account here scored a 97.6% chance of lapsing while
+# having ordered the previous month, purely because its magnitudes were extreme.
+#
+# log1p first. It is monotone, so nothing about the ordering changes; it is
+# defined at zero, which matters because most of these are zero for somebody;
+# and it turns "fourteen standard deviations" into "a large account". The same
+# reasoning is already applied before K-means in segmentation.py, for the same
+# reason: these are distance-based methods over quantities that span orders of
+# magnitude.
+HEAVY_TAILED_FEATURES = [
+    "revenue", "avg_monthly_revenue", "peak_monthly_revenue", "avg_order_value",
+    "revenue_last_quarter", "units", "lines", "invoices", "distinct_products",
+    "return_lines", "return_value", "postage", "avg_unit_price",
+    "lines_per_order", "cadence_overdue", "max_months_between_orders",
+]
+
 # Deliberately excluded, and why:
 #
 #   customer_id      an identifier, not a signal

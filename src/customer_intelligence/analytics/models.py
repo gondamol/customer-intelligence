@@ -35,7 +35,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
 from .features import prepare
 
@@ -94,12 +94,32 @@ class ModelResult:
     feature_names: list[str] = field(default_factory=list)
 
 
+def _log1p_signed(X):
+    """log1p that tolerates the occasional negative value without failing.
+
+    Signed, so a negative stays negative: none of these features should go below
+    zero, but a cleanse rule can be relaxed and a silent NaN is worse than a
+    monotone transform that keeps working.
+    """
+    return np.sign(X) * np.log1p(np.abs(X))
+
+
 def _preprocessor(numeric: list[str], categorical: list[str]) -> ColumnTransformer:
+    heavy = [c for c in getattr(_contract(), "HEAVY_TAILED_FEATURES", []) if c in numeric]
+    plain = [c for c in numeric if c not in heavy]
+
     return ColumnTransformer([
+        # Heavy-tailed money and counts: compress the tail before standardising,
+        # or the linear model extrapolates on magnitudes it never saw.
+        ("heavy", Pipeline([
+            ("impute", SimpleImputer(strategy="median")),
+            ("log", FunctionTransformer(_log1p_signed, feature_names_out="one-to-one")),
+            ("scale", StandardScaler()),
+        ]), heavy),
         ("num", Pipeline([
             ("impute", SimpleImputer(strategy="median")),
             ("scale", StandardScaler()),
-        ]), numeric),
+        ]), plain),
         ("cat", Pipeline([
             ("impute", SimpleImputer(strategy="most_frequent")),
             ("encode", OneHotEncoder(handle_unknown="ignore", min_frequency=0.01,
@@ -281,22 +301,37 @@ def top_reasons(
     numeric, _ = model_features(result.target)
     numeric = [c for c in numeric if c in population.columns]
 
+    # Explain on the scale the model actually works on. Reporting a raw z-score
+    # for a log-transformed input would describe arithmetic the model never did,
+    # and would show "+20 standard deviations" for a large account.
+    heavy = set(getattr(_contract(), "HEAVY_TAILED_FEATURES", []))
+    scaled = population[numeric].copy()
+    row = row.copy()
+    for feat in numeric:
+        if feat in heavy:
+            scaled[feat] = _log1p_signed(scaled[feat].astype(float))
+
     coefs = result.coefficients.set_index("feature")["coefficient"]
-    means = population[numeric].mean()
-    stds = population[numeric].std().replace(0, np.nan)
+    means = scaled.mean()
+    stds = scaled.std().replace(0, np.nan)
 
     contributions = []
     for feat in numeric:
         if feat not in coefs.index or pd.isna(row.get(feat)):
             continue
-        z = (row[feat] - means[feat]) / stds[feat]
+        value = float(row[feat])
+        transformed = _log1p_signed(value) if feat in heavy else value
+        z = (transformed - means[feat]) / stds[feat]
         if pd.isna(z):
             continue
         contributions.append({
             "feature": feat,
             "label": label(feat),
-            "value": row[feat],
-            "population_mean": means[feat],
+            # Report the value and the book average on the ORIGINAL scale, so a
+            # reader sees pounds rather than logarithms; the z-score behind the
+            # bar is the transformed one the model used.
+            "value": value,
+            "population_mean": float(population[feat].mean()),
             "z": float(z),
             "contribution": float(coefs[feat] * z),
         })

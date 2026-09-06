@@ -356,3 +356,80 @@ def test_retail_checks_find_the_known_real_defects(con):
 def test_check_keys_are_unique():
     keys = [c.key for c in RETAIL_CHECKS]
     assert len(keys) == len(set(keys))
+
+
+# ------------------------------------------------------- score sanity -----
+
+
+def test_heavy_tailed_features_are_declared():
+    """Money and counts in this book span orders of magnitude. Standardised raw
+    and fed to a linear model, the model extrapolates and the sigmoid saturates."""
+    from customer_intelligence.analytics.features_retail import (
+        HEAVY_TAILED_FEATURES, NUMERIC_FEATURES,
+    )
+    assert HEAVY_TAILED_FEATURES
+    unknown = set(HEAVY_TAILED_FEATURES) - set(NUMERIC_FEATURES)
+    assert not unknown, f"declared heavy-tailed but not a feature: {sorted(unknown)}"
+    for expected in ("revenue", "peak_monthly_revenue", "return_value"):
+        assert expected in HEAVY_TAILED_FEATURES
+
+
+def test_scores_do_not_saturate_on_outliers(con):
+    """No account should be given a near-certain verdict.
+
+    Before the heavy-tailed features were log-transformed, one account scored a
+    97.6% chance of lapsing while having ordered the previous month, purely
+    because its magnitudes were extreme -- fourteen and twenty standard
+    deviations from the mean on two inputs. ROC-AUC could not see it: it is a
+    ranking metric, and the ranking was fine. Only the scores were nonsense.
+    """
+    from customer_intelligence.analytics import models as M
+    from customer_intelligence.analytics import features_retail as FR
+
+    M.use_contract(FR)
+    c360 = R.build_360(con, min(RETAIL.train_feature), max(RETAIL.train_feature))
+    outcomes = R.build_outcomes(con)
+    train = c360.merge(outcomes, on="customer_id")
+    subset = train[train["lapse_eligible"] == 1]
+
+    result = M.train_model(subset, subset["lapsed"], "lapsed", "Lapse")
+    scores = M.score(result, subset)
+
+    import numpy as np
+
+    # Over-confidence is the failure that matters. A near-zero score on an
+    # obviously safe account is defensible; a near-certain verdict on an account
+    # that ordered last month is not, and that is what saturation produces.
+    assert scores.max() < 0.98, (
+        f"maximum predicted probability is {scores.max():.4f} — the model is "
+        "saturating on outliers and reporting near-certainty it cannot have"
+    )
+    # And it must not be one lucky account: the top of the distribution should
+    # be short of certainty too.
+    assert np.quantile(scores, 0.99) < 0.95, (
+        f"99th percentile of predicted probability is {np.quantile(scores, 0.99):.4f} "
+        "— the upper tail is saturating, not just a single outlier"
+    )
+
+
+def test_explanations_are_on_the_model_s_own_scale(con):
+    """A z-score reported for a log-transformed input must be the transformed
+    one, or the explanation describes arithmetic the model never did."""
+    from customer_intelligence.analytics import models as M
+    from customer_intelligence.analytics import features_retail as FR
+
+    M.use_contract(FR)
+    c360 = R.build_360(con, min(RETAIL.train_feature), max(RETAIL.train_feature))
+    outcomes = R.build_outcomes(con)
+    train = c360.merge(outcomes, on="customer_id")
+    subset = train[train["lapse_eligible"] == 1]
+    result = M.train_model(subset, subset["lapsed"], "lapsed", "Lapse")
+
+    biggest = subset.nlargest(1, "revenue").iloc[0]
+    reasons = M.top_reasons(result, biggest, subset, n=6)
+    assert reasons
+    for r in reasons:
+        assert abs(r["z"]) < 8, (
+            f"{r['label']} reports z={r['z']:+.1f} for the largest account in the "
+            "book — the explanation is on the raw scale, not the model's"
+        )

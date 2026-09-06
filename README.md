@@ -6,8 +6,9 @@ ledger**: two years of invoices from a UK giftware wholesaler, turned into
 account intelligence, predictive scores, and an explainable suggested action for
 a person to weigh.
 
-**▶ [Open the live dashboard](#running-it)** · **[Architecture](docs/architecture.md)** ·
-**[Model governance](docs/model_governance.md)** · **[Data governance](docs/data_governance.md)**
+### ▶ **[Open the live dashboard](https://nic-customer-intelligence.streamlit.app/)**
+
+**[Architecture](docs/architecture.md)** · **[Model governance](docs/model_governance.md)** · **[Data governance](docs/data_governance.md)** · **[Data dictionary](docs/data_dictionary.md)**
 
 > **Data source.** [Online Retail II](https://archive.ics.uci.edu/dataset/502/online+retail+ii),
 > UCI Machine Learning Repository — Chen, D. (2012), used under
@@ -43,7 +44,7 @@ unchanged; what the numbers mean is not.
 
 | | Synthetic version | On Online Retail II |
 |---|---|---|
-| Attrition model | ROC-AUC 0.93 | **0.735 ± 0.035** |
+| Attrition model | ROC-AUC 0.93 | **0.734 ± 0.034** |
 | Data quality defects | 16 types, injected | Real, and worse |
 | Unattributable revenue | none | **22.6% of the ledger** |
 | Seasonality | none | 3× between February and November |
@@ -125,8 +126,8 @@ ROC-AUC from 0.62 to 0.68 on identical features.
 
 | | Question | Result |
 |---|---|---|
-| **Lapse risk** | Will an established account place no order next quarter? | Cross-validated ROC-AUC **0.735 ± 0.035**, lift 1.70× |
-| **Growth propensity** | Will it beat the same quarter a year earlier? | Cross-validated ROC-AUC **0.680 ± 0.033**, lift 1.66× |
+| **Lapse risk** | Will an established account place no order next quarter? | Cross-validated ROC-AUC **0.734 ± 0.034**, lift 1.66× |
+| **Growth propensity** | Will it beat the same quarter a year earlier? | Cross-validated ROC-AUC **0.684 ± 0.030**, lift 2.00× |
 | **Next best product** | What should we lead with? | hit@5 **0.314** vs 0.211 popularity baseline — **1.49× lift** |
 
 Both classifiers are quoted **cross-validated with a spread**, not on a single
@@ -135,7 +136,26 @@ standard error — which is enough to report as an improvement something that is
 only a different shuffle.
 
 Both are calibrated in the large to three decimal places (predicted 0.453 vs
-observed 0.454; 0.240 vs 0.240).
+observed 0.454; 0.239 vs 0.240).
+
+### One defect a ranking metric could not see
+
+An account that had ordered the previous month, and was active in 8 of 12 months,
+was scored at a **97.6% probability of lapsing**. Its largest month was fourteen
+standard deviations above the book mean and its returned value twenty — so the
+linear model was extrapolating far outside anything it had been trained on and
+the sigmoid had saturated.
+
+**ROC-AUC did not move.** It is a ranking metric, the ranking was fine, and only
+the scores were nonsense — the same blind spot that hid a calibration failure
+earlier in this project.
+
+The fix is standard: `log1p` the heavy-tailed money and count features before
+standardising, which is monotone, defined at zero, and already applied before
+K-means in this codebase for the same reason. Afterwards that account scores
+**0.112**, no account exceeds 0.90, and discrimination is unchanged at 0.734.
+`tests/test_retail.py::test_scores_do_not_saturate_on_outliers` fails the build
+if it returns.
 
 ### Two negative results, published
 
@@ -168,7 +188,7 @@ policy, mistakes included.
 6. Deliberately nothing  →  a reachable outcome, recorded as a decision
 ```
 
-**15% of accounts reach a named account manager**, and they hold **48% of the
+**17% of accounts reach a named account manager**, and they hold **53% of the
 revenue**. An engine routing much more than that to human contact has produced a
 wish list, not a plan, so the check is on the page rather than in a footnote.
 
@@ -288,6 +308,8 @@ reproduced today because it is a file rather than the output of a fit that ran
 while someone was looking.
 
 ## Screenshots
+
+> **Live:** [https://nic-customer-intelligence.streamlit.app/](https://nic-customer-intelligence.streamlit.app/)
 
 **Executive view** — four questions in order. Champions are 18.3% of accounts and
 66.9% of revenue; Lost are 27.4% of accounts and 0.0%.

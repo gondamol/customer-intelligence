@@ -30,6 +30,16 @@ NUMERIC_FEATURES = [
 
 CATEGORICAL_FEATURES = ["region", "employment_type", "income_band"]
 
+# See features_retail.HEAVY_TAILED_FEATURES for the reasoning: log1p before
+# standardising, so a linear model is not extrapolating on quantities that span
+# orders of magnitude.
+HEAVY_TAILED_FEATURES = [
+    "monthly_income", "avg_monthly_balance", "peak_balance", "transaction_count",
+    "transaction_value", "avg_transaction_value", "total_inflow", "total_outflow",
+    "total_logins", "digital_transactions", "failed_logins", "loan_exposure",
+    "balance_to_income", "outflow_to_inflow",
+]
+
 # Deliberately excluded, and why:
 #
 #   customer_id        an identifier, not a signal

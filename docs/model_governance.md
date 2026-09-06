@@ -71,7 +71,7 @@ carry **null, not zero** — zero is a prediction, null is an admission — sit 
 
 This is not a technicality. Before it was enforced, the account-manager workload
 was 45% of the book, most of it accounts the models had never seen anything like.
-It is now 15%, and those accounts hold 48% of revenue.
+It is now 17%, and those accounts hold 53% of revenue.
 
 ## 5. Performance
 
@@ -80,8 +80,8 @@ them there rather than reproducing them by hand.
 
 | Model | Cross-validated ROC-AUC | Single split | Base rate | Lift | Calibration (predicted / observed) |
 |---|---|---|---|---|---|
-| Lapse risk | **0.735 ± 0.035** | 0.760 | 45.5% | 1.70× | 0.453 / 0.454 |
-| Growth propensity | **0.680 ± 0.033** | 0.717 | 24.1% | 1.66× | 0.240 / 0.240 |
+| Lapse risk | **0.734 ± 0.034** | 0.756 | 45.5% | 1.66× | 0.451 / 0.454 |
+| Growth propensity | **0.684 ± 0.030** | 0.746 | 24.1% | 2.00× | 0.239 / 0.240 |
 
 **On why the cross-validated figure is the one quoted.** Re-running this project
 with the rows in a different order moved a held-out AUC by 0.05. On ~440 test
@@ -91,13 +91,46 @@ repeated-stratified-CV mean (5 folds × 3 repeats) with its spread. The single
 split flattered both by 0.03–0.04, in the same direction, which is exactly what
 one would expect and exactly why it should not be the headline.
 
-**On the absolute level.** 0.735 is a real result on real data, and it is well
+**On the absolute level.** 0.734 is a real result on real data, and it is well
 below the 0.93 the synthetic version of this project reached. The synthetic
 number was higher because the process that produced the data was knowable.
 
 **On calibration.** A model used to decide who gets contacted must be right about
 the *level*, not only the order. Both are calibrated in the large to three
 decimal places; reliability by decile is shown in the application.
+
+## 5a. Feature scaling, and a defect ROC-AUC could not see
+
+Money and counts in a wholesale book are heavy-tailed: revenue runs from £3 to
+£280,000, and the largest account's best month sits fourteen standard deviations
+above the mean.
+
+Standardised raw and passed to a logistic regression, that means the model
+extrapolates far outside its training range and the sigmoid saturates. One
+account — which had ordered the previous month and was active in eight months of
+twelve — was scored at a **97.6% probability of lapsing**, driven by a
+z-score of +14 on its best month and +20 on its returned value.
+
+**ROC-AUC did not move when this was fixed.** It is a rank-based metric, the
+ranking was correct, and only the probabilities were wrong. That is the same
+blind spot that hid a calibration failure earlier in this project, and it is the
+argument for reporting calibration and inspecting individual scores rather than
+trusting a single headline number.
+
+The fix: `log1p` on the declared heavy-tailed features before standardising
+(`features_retail.HEAVY_TAILED_FEATURES`). Monotone, so nothing about the
+ordering changes; defined at zero, which matters because most of these are zero
+for somebody; and it turns "fourteen standard deviations" into "a large account".
+The same transform is already applied before K-means in `segmentation.py`, for
+the same reason.
+
+Afterwards: that account scores **0.112**, no account exceeds 0.90, and
+cross-validated discrimination is unchanged (0.735 → 0.734).
+
+Per-account explanations are computed on the transformed scale the model actually
+uses, while displaying values and book averages in pounds — otherwise the
+explanation would describe arithmetic the model never did.
+`tests/test_retail.py` enforces both properties.
 
 ## 6. The recommender, and the two models it replaced
 

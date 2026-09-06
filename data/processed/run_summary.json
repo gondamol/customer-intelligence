@@ -2,10 +2,10 @@
   "domain": "retail",
   "domain_name": "Online Retail II \u2014 UK giftware wholesaler",
   "customers": 5914,
-  "generated_at": "2026-09-06T09:07:28",
+  "generated_at": "2026-09-06T12:54:43",
   "thresholds": {
-    "lapse": 0.6271946646367271,
-    "growth": 0.3048547139350573
+    "lapse": 0.6259011891202835,
+    "growth": 0.29972748903314217
   },
   "window_rationale": "Feature windows are twelve whole months so seasonality is averaged out inside them. Both outcome windows are December\u2013February, so the model is applied to the same season it was trained on.",
   "train_feature": [
@@ -28,21 +28,21 @@
   },
   "actions": {
     "Self-service and catalogue only": 2487,
-    "Seasonal range prompt": 1231,
+    "Seasonal range prompt": 1200,
     "Onboarding sequence": 590,
-    "Volume and terms conversation": 583,
-    "No action this period": 579,
-    "Proactive check-in": 241,
+    "Volume and terms conversation": 582,
+    "No action this period": 513,
+    "Proactive check-in": 330,
     "Resolve the returns problem": 94,
-    "Account-manager win-back call": 80,
-    "Structured win-back offer": 29
+    "Account-manager win-back call": 90,
+    "Structured win-back offer": 28
   },
   "quadrants": {
     "Not scored": 4211,
-    "Grow": 679,
-    "Monitor": 530,
-    "Develop": 282,
-    "Retain": 212
+    "Grow": 671,
+    "Monitor": 567,
+    "Develop": 255,
+    "Retain": 210
   },
   "segments": {
     "Lost": 1619,

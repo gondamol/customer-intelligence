@@ -50,7 +50,7 @@ RETAIL_ACTIONS: dict[str, Action] = {
     "service_recovery": Action(
         key="service_recovery",
         title="Resolve the returns problem",
-        channel="Customer service",
+        channel="Customer service, outbound contact",
         priority="Urgent",
         cost="Customer service",
         rationale="An unusually high share of this account's value has come back as returns. Whatever is wrong will not be fixed by another order.",

@@ -4,6 +4,8 @@
 *A six-slide walkthrough. Built on Online Retail II — Chen, D. (2012), UCI
 Machine Learning Repository, CC BY 4.0.*
 
+**Live dashboard: [https://nic-customer-intelligence.streamlit.app/](https://nic-customer-intelligence.streamlit.app/)**
+
 ---
 
 ## 1 — The problem
@@ -82,8 +84,8 @@ on identical features.
 
 | Model | Result |
 |---|---|
-| Lapse risk | Cross-validated ROC-AUC **0.735 ± 0.035**, lift 1.70× |
-| Growth propensity | Cross-validated ROC-AUC **0.680 ± 0.033**, lift 1.66× |
+| Lapse risk | Cross-validated ROC-AUC **0.734 ± 0.034**, lift 1.66× |
+| Growth propensity | Cross-validated ROC-AUC **0.684 ± 0.030**, lift 2.00× |
 | Next best product | hit@5 **0.314** vs 0.211 popularity — **1.49× lift** |
 
 Quoted cross-validated, with the spread. A single split flattered both by
@@ -115,7 +117,7 @@ carry no score and say why. Filling their risk with 1.0 to make the arithmetic
 work would flag them as high-risk on the strength of a number the model
 explicitly declined to produce.
 
-**15% of accounts reach a named account manager**, holding **48% of revenue**.
+**17% of accounts reach a named account manager**, holding **53% of revenue**.
 An engine routing much more than that to human contact has produced a wish list,
 not a plan.
 
