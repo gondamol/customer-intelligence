@@ -1,176 +1,217 @@
 # Customer Intelligence & Decision Analytics
 ### From data to decisions
 
-An end-to-end analytics product that turns fragmented customer data into
-customer intelligence, predictive insight, and explainable decision support.
+An end-to-end analytics product built on a **real, openly published transaction
+ledger**: two years of invoices from a UK giftware wholesaler, turned into
+account intelligence, predictive scores, and an explainable suggested action for
+a person to weigh.
 
-**Synthetic demonstration.** Every customer, transaction and score in this
-project was generated. Nothing here describes a real organisation, customer, or
-portfolio, and no output is a financial, credit, or customer decision. The
-methodology transfers to any data-intensive customer environment — financial
-services, telecoms, insurance, retail, healthcare.
+**▶ [Open the live dashboard](#running-it)** · **[Architecture](docs/architecture.md)** ·
+**[Model governance](docs/model_governance.md)** · **[Data governance](docs/data_governance.md)**
+
+> **Data source.** [Online Retail II](https://archive.ics.uci.edu/dataset/502/online+retail+ii),
+> UCI Machine Learning Repository — Chen, D. (2012), used under
+> [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). 1,067,371 real
+> invoice lines. Scores and recommendations are this project's own work and are
+> decision **support**: nothing here is an automated decision.
 
 ---
 
 ## The problem
 
-Customer data is fragmented by construction. A core ledger holds balances, a
-switch holds card activity, a digital channel holds logins, a contact centre
-holds complaints. Every one is authoritative about its own domain and none of
-them knows who the customer is.
+Customer data arrives as a flat ledger of transactions, and almost everything
+interesting about it is a problem. A fifth of the lines belong to nobody.
+Returns are booked through the sales table. The same product is described three
+different ways. Somewhere in there is a row that says *"This is a test product"*.
 
-The consequence is not that reporting is hard. It is that the questions worth
-answering cannot be asked:
+The questions a business actually needs answered cannot be asked of that ledger
+directly:
 
-- Which relationships are quietly ending, while the balance still looks healthy?
-- Where is there genuine headroom, as opposed to a large existing balance?
-- Which customers should be contacted this week, by whom, at what cost?
+- Which accounts have quietly stopped ordering — as distinct from the ones that
+  order quarterly and are simply between orders?
+- Which are likely to grow, in a business where a third of the year's revenue
+  arrives in two months?
+- Which deserve a phone call this week, and which should be served by a catalogue?
 
-This project builds the layers required to answer them, and stops at a
-**suggested action with its reasoning attached** — not at a chart.
+This project builds the layers required to answer them and stops at a **suggested
+action with its reasoning attached**.
 
-## Why it matters
+## Why real data changed the project
 
-The distance between a dashboard and a decision is where most analytics work
-stops. Closing it takes four things that are usually treated as separate
-disciplines, and this project does all four deliberately:
+An earlier version of this ran on data it generated itself. The architecture is
+unchanged; what the numbers mean is not.
 
-1. **Data you can defend.** Quality measured before anything is built on it, with
-   every cleansing decision logged.
-2. **A model of the customer, not of the tables.** One analytical view, bounded
-   by an explicit time window.
-3. **Predictions that are honest about their limits.** Calibration reported, weak
-   results published, thresholds set by capacity rather than convention.
-4. **A decision layer someone can argue with.** Transparent rules, stated policy
-   ordering, constraints attached to every recommendation.
+| | Synthetic version | On Online Retail II |
+|---|---|---|
+| Attrition model | ROC-AUC 0.93 | **0.735 ± 0.035** |
+| Data quality defects | 16 types, injected | Real, and worse |
+| Unattributable revenue | none | **22.6% of the ledger** |
+| Seasonality | none | 3× between February and November |
+
+The synthetic figure was higher because the process that produced the data was
+knowable. The real figure is the honest one, and every awkward property below is
+something the invented data did not have.
+
+## The data engineering is the substance
+
+```
+Invoice / StockCode mix integers with alphanumeric codes
+  → read as numbers, every credit note and admin row silently disappears
+
+0.57% of stock codes are not products
+  → postage, carriage, manual adjustments, discounts, samples, bank charges,
+    an Amazon commission of −£260,764, bad-debt write-offs, gift vouchers,
+    and 17 rows described as "This is a test product"
+
+`M` and `m` are the same manual-adjustment code
+  → unified for admin codes only; product codes are case-significant
+    (84031A and 84031B are different items)
+
+22,950 negative quantities
+  → returns SEPARATED, not netted off. An account that buys £10,000 and returns
+    £9,000 is not the same relationship as one that buys £1,000 and returns none
+
+5,305 stock codes, no categories
+  → a derived keyword taxonomy carries 87.7% of revenue into 11 named
+    categories. A published judgement, not a fact about the data
+```
 
 ## Architecture
 
 ```
-                          SOURCE SYSTEMS
-        ┌───────────────┬───────┴────────┬────────────────┐
-        ▼               ▼                ▼                ▼
-    customers       accounts        transactions      engagement
-    products        balances        loans             interactions
-        └───────────────┴───────┬────────┴────────────────┘
+              Online Retail II (UCI, CC BY 4.0)
+                  downloaded at build time, cached by SHA-256
                                 ▼
-                          RAW LAYER            as landed, defects intact
+                          RAW LAYER              as published, defects intact
                                 │
-                   22 checks · 7 dimensions
+                    22 checks · 7 dimensions
                                 ▼
-                       CONFORMED LAYER         every dropped row logged
+                       CONFORMED LAYER           every dropped line logged
                                 ▼
-                        MONTHLY PANEL          customer × month, full spine
+                        MONTHLY PANEL            account × month, silence recorded
                                 ▼
-                         CUSTOMER 360          window-parameterised
+                         CUSTOMER 360            window-parameterised
               ┌─────────────────┼─────────────────┐
               ▼                 ▼                 ▼
-        SEGMENTATION       PREDICTION        OPPORTUNITY
+         RFM SEGMENTS      LAPSE / GROWTH    OPPORTUNITY + RECOMMENDER
               └─────────────────┼─────────────────┘
                                 ▼
-                        DECISION ENGINE        transparent, ordered rules
+                        DECISION ENGINE          transparent, ordered rules
                                 ▼
-                       STREAMLIT APPLICATION   reads artefacts, computes nothing
+                       STREAMLIT APPLICATION     reads artefacts, computes nothing
 ```
 
-Full detail in [`docs/architecture.md`](docs/architecture.md).
+## Windows chosen for season, not convenience
 
-## The data
+This business takes **84,711 invoice lines in November 2011 and 27,707 in
+February**. That single fact determines the experimental design:
 
-50,000 synthetic customers over 15 months, across eight related source tables.
+```
+train   features months  1–12  (Dec 09 – Nov 10) → outcome 13–15 (Dec 10 – Feb 11)
+score   features months 13–24  (Dec 10 – Nov 11) → outcome 25–27 (Dec 11 – Feb 12, unobserved)
+```
 
-Nothing is drawn independently. Each customer has latent traits — affluence,
-digital affinity, credit appetite, relationship stability — and every observable
-quantity is a noisy function of those traits. That is what makes segmentation
-find real structure and churn predictable but not trivially so. The traits are
-never written to disk; models see only what an analyst would see.
+Both feature windows are twelve whole months, so seasonality averages out inside
+them. **Both outcome windows are December–February**, so the model is applied to
+the season it was trained on. A test enforces it.
 
-Behaviour that follows from this rather than being hard-coded:
+The same reasoning fixed the growth target. "Beats its own annual quarterly
+run-rate" is wrong in a seasonal business — in a low quarter most accounts fall
+below their annual average whatever they do, and the model spends its capacity
+learning the calendar. Comparing **the same quarter a year earlier** moved
+ROC-AUC from 0.62 to 0.68 on identical features.
 
-- income band rises monotonically with balances, transaction value, product
-  holdings and digital engagement;
-- digital engagement falls monotonically with age;
-- customers heading for attrition show declining balances, falling transaction
-  frequency, reduced logins **and** rising complaints, together;
-- about a third of declines **recover**, and a further group leaves abruptly
-  inside the outcome window — the irreducible error that keeps the achievable
-  performance honest.
+## What the models do
 
-### Deliberate defects
-
-Sixteen defect types are injected in known quantities: missing values, duplicate
-customers and transactions, invalid dates, impossible ages, negative balances,
-invalid statuses, orphaned records, inconsistent product codes, missing keys, and
-anomalous amounts.
-
-This is the point of the exercise. A quality framework that has never been shown
-a defect proves nothing.
-
-## Analytics
-
-| Layer | Approach | Result |
+| | Question | Result |
 |---|---|---|
-| **Segmentation** | Published rules, checked against K-means | Silhouette 0.15 at the k in production, 0.16 at the best k tested — no natural clusters exist. Reported as a finding, and as the argument for rules |
-| **Attrition** | Logistic regression | ROC-AUC 0.93, PR-AUC 0.76, 6.7× lift |
-| **Investment propensity** | Logistic regression, eligible population only | ROC-AUC 0.83, 3.8× lift |
-| **Lending propensity** | Logistic regression, eligible population only | ROC-AUC 0.66, 1.9× lift — modest, and published rather than dropped |
-| **Opportunity** | Five-component published heuristic | 0–100 relative score. Not a revenue figure |
+| **Lapse risk** | Will an established account place no order next quarter? | Cross-validated ROC-AUC **0.735 ± 0.035**, lift 1.70× |
+| **Growth propensity** | Will it beat the same quarter a year earlier? | Cross-validated ROC-AUC **0.680 ± 0.033**, lift 1.66× |
+| **Next best product** | What should we lead with? | hit@5 **0.314** vs 0.211 popularity baseline — **1.49× lift** |
 
-Random forest and gradient boosting are trained alongside every model and their
-scores published. **Logistic regression ships** — a marginal gain in
-discrimination did not justify losing the per-customer explanation that makes a
-recommendation arguable. The comparison table is shown so the trade-off can be
-judged on evidence.
+Both classifiers are quoted **cross-validated with a spread**, not on a single
+split. On this sample a single split flattered both by 0.03–0.04 — about one
+standard error — which is enough to report as an improvement something that is
+only a different shuffle.
+
+Both are calibrated in the large to three decimal places (predicted 0.453 vs
+observed 0.454; 0.240 vs 0.240).
+
+### Two negative results, published
+
+A **category-expansion classifier** scored ROC-AUC 0.550. A **category-level
+recommender** failed to beat a popularity baseline (0.927 vs 0.936). Both fail
+for the same structural reason, which took a diagnosis rather than a bigger
+model: the median account already buys **9 of the 12 categories**, so "the top 3
+you don't buy" is most of what is left.
+
+Reframed to **product** level — where the median account buys 18 of the top 400 —
+the problem is real, item-to-item collaborative filtering beats popularity by
+1.49×, and it can name the product an account manager should lead with. A
+propensity score can rank a customer; only a recommender can name a product.
 
 ## The decision engine
 
-A transparent rule set, not a model. A recommendation has to be arguable; the
-rules encode policy, which should be changed deliberately; and learning actions
-from historical outcomes learns the historical policy, including its mistakes.
+A transparent rule set, not a model. A recommendation has to be arguable by the
+account manager who receives it; the rules encode commercial policy, which should
+be changed deliberately; and learning actions from last year learns last year's
+policy, mistakes included.
 
-The ordering is the policy:
+**The ordering is the policy:**
 
 ```
-1. Credit position       →  nobody in arrears is sold anything
-2. Unresolved service    →  fix the failure before any commercial conversation
-3. Retention             →  graded by what the relationship is worth
-4. Activation            →  early-tenure customers with no established pattern
-5. Growth                →  only on a stable relationship
+1. Service failure       →  a 20%+ return rate is not a sales opportunity
+2. Too new to judge      →  onboarding, not a low-value label
+3. Not scored            →  says so, rather than implying a judgement never made
+4. Retention             →  graded by what the account is worth and how far gone
+5. Growth                →  only on an account that is not going anywhere
 6. Deliberately nothing  →  a reachable outcome, recorded as a decision
 ```
 
-Every recommendation carries the rule that fired, the model reasons beneath it,
-the constraint on acting, and a confidence grade based on how much history exists
-for that customer — not on how extreme the score is.
+**14% of accounts reach a named account manager** — and they hold most of the
+revenue. An engine routing more than that to human contact has produced a wish
+list, not a plan, so the check is on the page.
 
-## Governance
+### Accounts the models refuse to score
 
-Controls are properties of the code, enforced by tests.
+Only **1,703 of 5,914** accounts have an established ordering rhythm. The rest
+carry no score, sit in a **"Not scored"** quadrant, and their recommendation says
+why. Filling their risk with 1.0 to make the arithmetic work would put them in
+the Retain quadrant — flagged as high risk on the strength of a number the model
+explicitly declined to produce.
 
-- **Leakage.** Training features from months 1–12, outcome from 13–15; scoring
-  features from months 4–15, outcome unobserved. Both produced by the *same SQL*
-  with a different window. A test greps the SQL for any month literal reaching
-  into the outcome window.
-- **Protected attributes.** Gender is in the source data, shown in the profile,
-  and is **not** an input to any model. A test fails the build if that changes.
-- **Eligibility.** Each model scores only the population it was trained on.
-  Ineligible customers get null, not zero.
-- **Data minimisation.** No names, addresses, contact details or identifiers are
-  ever generated. A test enforces it.
-- **Nothing dropped silently.** Every removed row is counted with its reason.
+## Data quality: the defects are real
 
-Detail in [`docs/data_governance.md`](docs/data_governance.md) and
-[`docs/model_governance.md`](docs/model_governance.md).
+| Finding | Count |
+|---|---|
+| Lines with no customer identifier | **235,143** (22.6%) |
+| Exact duplicate lines | **34,058** |
+| Non-positive unit price on a sale | 6,153 |
+| Negative quantity on a non-credit-note invoice | 3,427 |
+| Stock codes with conflicting descriptions | 1,215 |
+| Rows described as "This is a test product" | 17 |
 
-### One result worth pausing on
+None of it was injected. **A fifth of the ledger cannot be attributed to any
+customer**, so every per-account figure in this project describes the 77% that
+can — and says so.
 
-> **99.4% of records conform. 73% of customers are affected.**
+### How do we know the checks work?
 
-Both describe the same data. A row-weighted average is arithmetically bound to
-look reassuring at these defect rates; defects are not spread evenly across
-customers. Reporting only the first figure would be technically accurate and
-materially misleading — so both are on the application's landing page, and the
-second is the one that drives remediation.
+On real data the answer is not known in advance, so the checks cannot be graded
+against it. They are graded somewhere else:
+
+```bash
+make validate-checks     # 16 defect types injected in known quantities, 16 detected
+```
+
+The synthetic generator is retained for exactly this. It injects known defects,
+and the reconciliation of *injected* against *detected* is a test the build must
+pass. The complementary test matters as much: the same rules run over the
+**undamaged** data must all pass, or a check that always fires would look like a
+working detector.
+
+Prove the instrument reads correctly against a known answer, then point it at
+data where the answer is unknown.
 
 ## Technology
 
@@ -180,160 +221,145 @@ second is the one that drives remediation.
 | Data | pandas, NumPy, PyArrow, Parquet |
 | Query engine | DuckDB (default), PostgreSQL-compatible via `CI_POSTGRES_DSN` |
 | Modelling | scikit-learn |
-| Application | Streamlit |
-| Charts | Plotly |
-| Testing | pytest |
+| Application | Streamlit + Plotly |
+| Testing | pytest — 123 tests |
 
-DuckDB is the default because it needs no server, so the project runs on a laptop
-with nothing installed. The SQL is ordinary analytical SQL and avoids
-engine-specific syntax — the analysis window is a one-row table rather than a
-DuckDB variable for exactly that reason.
+Transformations live in SQL because that is where this work belongs and where a
+colleague can change it. DuckDB needs no server, so the project runs on a laptop
+with nothing installed; the SQL avoids engine-specific syntax and the analysis
+window is a one-row table rather than a DuckDB variable for exactly that reason.
 
-## Running locally
+## Running it
 
 ```bash
 git clone https://github.com/gondamol/customer-intelligence.git
 cd customer-intelligence
 
 make setup      # create the environment (Python 3.11 via uv)
-make all        # generate, assess quality, build, model and score
-make run        # open the application
+make run        # open the application — the derived artefacts are committed
 ```
 
-`make all` takes roughly seven minutes on 50,000 customers. For a quicker look:
+The application runs immediately: the artefacts it reads (3.4 MB) are in the
+repository. To rebuild everything from the published source:
 
 ```bash
-make demo       # the same pipeline on 8,000 customers
+make all        # fetch, land, assess quality, build, train, score
 ```
 
-Individual stages:
+That downloads Online Retail II from UCI on first run and takes a few minutes.
+Individual stages: `make fetch land quality build train`.
 
-```bash
-make generate   # synthetic source data + defect injection
-make quality    # 22 checks, scored and reconciled against the manifest
-make build      # conformed layer, monthly panel, Customer 360
-make train      # models, scores, opportunity, recommendations
-make test       # the test suite
-```
-
-To run against PostgreSQL instead of local parquet:
+Against PostgreSQL instead of local parquet:
 
 ```bash
 export CI_POSTGRES_DSN="postgresql://user:pass@host:5432/dbname"
 make build
 ```
 
+### Deploying
+
+The repository is deployment-ready for **Streamlit Community Cloud** — the
+derived artefacts are committed, so there is no build step and no data download
+at start-up.
+
+[**Deploy this app**](https://share.streamlit.io/deploy?repository=gondamol%2Fcustomer-intelligence&branch=main&mainModule=app%2FHome.py)
+
+| Setting | Value |
+|---|---|
+| Repository | `gondamol/customer-intelligence` |
+| Branch | `main` |
+| Main file path | `app/Home.py` |
+| Python version | 3.11 |
+
 ## The application
 
 | Page | Answers |
 |---|---|
 | **Executive view** | What is happening, why, where the opportunity is, what to consider doing |
-| **Customer 360** | Everything known about one relationship, on one screen |
-| **Customer segments** | Who the customers are — rules against clustering |
-| **Risk & opportunity** | Which relationships are changing, and which are worth the effort |
-| **Decision support** | The evidence, the drivers, the suggested action, the constraints |
+| **Account 360** | Everything known about one trading relationship |
+| **Segments** | Who these accounts are — RFM, and why not a clustering |
+| **Risk & opportunity** | Which accounts are changing, and which are worth the effort |
+| **Decision support** | The evidence, the drivers, what to offer, the constraints |
 | **Data quality & governance** | Whether any of the rest can be trusted |
 
 The application **reads artefacts and computes nothing**. Every page is
-interactive because the work already happened, and the number a reader saw
-yesterday can be reproduced today because it is a file rather than the output of
-a fit that ran while they were looking.
+interactive because the work already happened, and yesterday's number can be
+reproduced today because it is a file rather than the output of a fit that ran
+while someone was looking.
 
 ## Screenshots
 
-**Executive view** — four questions in order, and nothing else on the page.
+**Executive view** — four questions in order. Champions are 18.3% of accounts and
+66.9% of revenue; Lost are 27.4% of accounts and 0.0%.
 
 ![Executive view](assets/01-executive-view.png)
 
-**Decision support** — the evidence, what drove it, the suggested action, and the
+**Decision support** — the evidence, what drove it, what to lead with, and the
 constraints on acting.
 
 ![Decision support](assets/05-decision-support.png)
 
-**Data quality & governance** — the same data reported two ways, because one of
-them is reassuring and misleading.
+**Data quality & governance** — real defects, real decisions, and how the checks
+themselves were validated.
 
-![Data quality and governance](assets/06-data-quality.png)
+![Data quality](assets/06-data-quality.png)
 
-**Customer segments** — share of customers against share of balances. Any
-segmentation where the two charts have the same shape has found nothing.
-
-![Customer segments](assets/03-segments.png)
-
-**Risk & opportunity** — the matrix, drawn as a density surface because fifty
-thousand overlapping points are a blob.
+**Risk & opportunity** — the matrix, drawn as a density surface.
 
 ![Risk and opportunity](assets/04-risk-opportunity.png)
-
-**Customer 360** — one relationship, end to end.
-
-![Customer 360](assets/02-customer-360.png)
 
 ## Testing
 
 ```bash
-make test
+make test      # 123 tests
 ```
 
-Seven suites covering schema and referential integrity, the quality framework
-graded against the injection manifest, leakage controls, feature generation,
-model behaviour, the decision rules, and the SQL layer.
+The ones worth reading first:
 
-The tests worth reading first:
-
+- `test_retail.py::test_both_outcome_windows_fall_in_the_same_season` — enforces
+  the seasonal alignment the whole design rests on.
+- `test_retail.py::test_recommender_beats_a_popularity_baseline` — the benchmark
+  a recommender must clear to have earned its complexity.
+- `test_retail.py::test_mixed_type_columns_are_read_as_strings` — read as
+  numbers, every credit note disappears silently.
 - `test_data_quality.py::test_every_injected_defect_is_detected` — grades the
   framework against a known answer.
 - `test_data_quality.py::test_clean_data_passes_the_checks_it_should` — without
-  it, a check that always fires would look like a working detector.
-- `test_leakage.py::test_customer_360_never_reads_outside_its_window` — builds
-  the 360 over two windows and asserts the results differ in the right direction.
-- `test_leakage.py::test_gender_is_not_a_model_feature` — fails the build if a
-  protected attribute re-enters the model.
-- `test_decision_engine.py::test_stable_unremarkable_customer_gets_no_action` —
-  doing nothing must be reachable, or the engine generates contact rather than
-  insight.
+  it, a check that always fires would look like a detector.
+- `test_features_and_models.py::test_predicted_probabilities_match_the_observed_rate`
+  — catches class weighting applied by reflex, which leaves ranking metrics
+  untouched while invalidating every probability downstream.
 
 ## Limitations
 
-Stated plainly, because a demonstration that hides its boundaries is worth less
-than one that names them.
-
-1. **The data is synthetic**, generated from a known process. Relationships are
-   cleaner than reality; there are no seasonal effects, no macroeconomic shocks,
-   no mid-panel data migrations.
-2. **Performance figures are a property of that process** and are not a forecast
-   of performance on a real portfolio.
-3. **The attrition label is behavioural** ("went quiet"), not commercial
-   ("closed the account"). Behaviour that begins inside the feature window and
-   continues into the outcome window is easier to predict, which is the main
-   reason the reported AUC is high. It is the label that is easy, not the model
-   that is exceptional.
-4. **Fifteen months is a short panel.** No model here has seen a full annual
-   cycle, so nothing seasonal could have been learned.
-5. **The opportunity score is a heuristic**, not a fitted model. There is no
-   ground truth for "opportunity"; a model that appeared to find one would be
-   fitting to last year's sales.
-6. **The decision engine encodes one set of policy assumptions.** A different
-   organisation would order the rules differently, and should.
-7. **No causal claim is supported anywhere.** Every relationship here is
-   associational. Permutation importance measures what the model relies on, not
-   what causes attrition.
+- **One business, two years, one country.** A UK giftware wholesaler selling
+  largely to trade customers. Nothing generalises without re-fitting.
+- **The lapse label is behavioural, not contractual.** A wholesale customer
+  cannot cancel; they can only stop ordering.
+- **A fifth of the ledger is unattributable**, so every per-account figure
+  describes the 77% that can be attributed.
+- **The product taxonomy is derived** by keyword rules. 87.7% of revenue, eleven
+  categories, published in `sources/retail.py`.
+- **1,752 accounts train the models** — small, and the reason the reported
+  spreads are what they are.
+- **No causal claim is supported anywhere.** Permutation importance measures what
+  a model relies on, not what causes an account to lapse.
 
 ## What this demonstrates
 
 | Capability | Where |
 |---|---|
-| Analytical data architecture | Layered model, window-parameterised portable SQL |
-| Data engineering | Reproducible pipeline, one command per stage |
-| Data quality & governance | 22 checks graded against 16 injected defects |
-| Statistical modelling | Three models, calibration reported, weakest result published |
+| Data acquisition & provenance | Publisher downloads, SHA-256 caching, licence-aware attribution |
+| Data engineering | Mixed types, admin codes, returns, a derived taxonomy — on real mess |
+| Analytical architecture | Layered model, window-parameterised portable SQL |
+| Data quality & governance | 22 rules on real defects, validated against a synthetic control |
+| Statistical modelling | Cross-validated with spreads, calibrated, negative results published |
 | Decision science | Thresholds set by capacity; risk and opportunity kept separate |
 | Data products | An application that reads artefacts, so numbers are reproducible |
-| Stakeholder communication | An executive view that answers four questions and no more |
 
 ```
-Data management  →  Analytics  →  Statistical modelling
-                 →  Decision support  →  Analytics products
+Data management → Analytics → Statistical modelling
+                → Decision support → Analytics products
 ```
 
 ## Documentation
@@ -341,15 +367,18 @@ Data management  →  Analytics  →  Statistical modelling
 | Document | Contents |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Layers, the two-snapshot design, repository layout |
-| [`docs/data_dictionary.md`](docs/data_dictionary.md) | Every field: meaning, type, allowed values, sensitivity, validation |
-| [`docs/data_governance.md`](docs/data_governance.md) | Quality dimensions, cleansing decisions, access model, lineage |
-| [`docs/model_governance.md`](docs/model_governance.md) | Purpose, targets, eligibility, performance, fairness, monitoring, limitations |
+| [`docs/data_dictionary.md`](docs/data_dictionary.md) | Every field: meaning, type, validation, sensitivity |
+| [`docs/data_governance.md`](docs/data_governance.md) | Quality dimensions, cleansing decisions, lineage |
+| [`docs/model_governance.md`](docs/model_governance.md) | Targets, eligibility, performance, limitations |
 | [`docs/presentation.md`](docs/presentation.md) | Six-slide executive walkthrough |
 
 ---
 
-Built by **Nichodemus Amollo** as a portfolio demonstration.
+Built by **Nichodemus Amollo**.
 [Portfolio](https://gondamol.github.io) · [GitHub](https://github.com/gondamol)
+
+Data: Chen, D. (2012). *Online Retail II* [Dataset]. UCI Machine Learning
+Repository. https://doi.org/10.24432/C5CG6D — CC BY 4.0.
 
 > The domain may change. The analytical problem remains: turning complex data
 > into better decisions.
